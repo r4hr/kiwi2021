@@ -174,6 +174,7 @@ kiwi21 <- kiwi21 %>%
 
 
 ## Generacion dataframes ----  
+### Freelancers ----
 freelo21 <- kiwi21 %>% 
   filter(trabajo == "Freelance")
 
@@ -192,17 +193,35 @@ freelo21$coeficiente
 freelo21$coeficiente[[4]] <- 1.5
 freelo21$coeficiente[[40]] <- 1.2
 
-freelo21 <- lapply(freelo21, nullToNA)
+# Reemplazar valores NULL con NA
+freelo21$coeficiente[[2]] <- NA
+freelo21$coeficiente[[8]] <- NA
+freelo21$coeficiente[[9]] <- NA
+freelo21$coeficiente[[11]] <- NA
+freelo21$coeficiente[[13]] <- NA
+freelo21$coeficiente[[16]] <- NA
+freelo21$coeficiente[[19]] <- NA
+freelo21$coeficiente[[25]] <- NA
+freelo21$coeficiente[[27]] <- NA
+freelo21$coeficiente[[29]] <- NA
+freelo21$coeficiente[[37]] <- NA
+freelo21$coeficiente[[38]] <- NA
+freelo21$coeficiente[[39]] <- NA
+freelo21$coeficiente[[41]] <- NA
+freelo21$coeficiente[[46]] <- NA
+freelo21$coeficiente[[47]] <- NA
+freelo21$coeficiente[[49]] <- NA
 
 freelo21 <- freelo21 %>% 
   mutate(medio_pago_exterior = as.character(unlist(medio_pago_exterior)),
          coeficiente = as.numeric(unlist(coeficiente)))
 
-freelo21 <- rbindlist(freelo21)
 glimpse(freelo21)
 
-
-  
+# Guardar el archivo de freelancers
+write_delim(freelo21, file = "data/freelancers_2021.csv",
+            delim = ";")
+### Relación de dependencia ----
 rh21 <- kiwi21 %>% 
   filter(trabajo != "Freelance") %>% 
   select("id":"valoracion_gestion_pandemia")
@@ -213,7 +232,17 @@ glimpse(rh21)
 rh21 <- rh21 %>% 
   mutate(anios_experiencia = as.numeric(unlist(anios_experiencia)),
          ajuste_porcentaje = as.numeric(unlist(ajuste_porcentaje)),
-         sueldo_bruto = as.numeric(unlist(sueldo_bruto)),
-         pregunta_bizarra = as.character(unlist(pregunta_bizarra)))
+         sueldo_bruto = as.numeric(unlist(sueldo_bruto)))
 
 
+unique(rh21$puesto)
+unique(rh21$funcion)
+
+
+rh21 <- rh21 %>% 
+  filter(!puesto %in% c("Inspección de calidad", "Desarrollador", "-"),
+         !funcion %in% c("Salud y Seguridad", "No trabajo en rrll", "Customer", 
+                         "Data scientist"))
+
+write_delim(rh21, file = "data/rh_2021.csv",
+            delim = ";")   
