@@ -91,7 +91,8 @@ kiwi21$id <- rep(1:nrow(kiwi21))
 kiwi21 <- kiwi21 %>% 
   select(id, everything(), -"¿Querés contestar más preguntas?...30",
          -"¿Querés contestar más preguntas?...39", 
-         -"¿Querés contestar más preguntas?...47",)
+         -"¿Querés contestar más preguntas?...47",
+         - Comentarios)
 
 
 ## Limpieza nombres de columnas ----
@@ -168,8 +169,8 @@ kiwi21 <- kiwi21 %>%
     base_coeficiente = El.coeficiente.lo.calculás.sobre.,
     garantia = X.Ofrecés.garantía.,
     servicio_principal = X.Cuál.es.el.servicio.principal.que.brindas...si.brindás.más.de.un.servicio..elegí.el.que.más.ingresos.genere.,
-    valor_hora = X.Cuál.es.el.valor.hora.promedio.que.ofrecés...moneda.local.,
-    comentarios = Comentarios)
+    valor_hora = X.Cuál.es.el.valor.hora.promedio.que.ofrecés...moneda.local.
+)
 
 # Limpieza datos 2020 ------
 limpios <- make.names(colnames(kiwi20))
@@ -326,7 +327,7 @@ rh20 <- rh20 %>%
 
 
 # Guarda csv rh20
-write_delim(rh20, file = "rh_2020.csv",
+write_delim(rh20, file = "data/rh_2020.csv",
             delim = ";")
 
 
@@ -341,8 +342,7 @@ freelo21 <- freelo21 %>%
          -anios_experiencia,        # Eliminación manual de columnas
          -sueldo_bruto,
          -ajuste_porcentaje,
-         -pregunta_bizarra,
-         -comentarios)
+         -pregunta_bizarra)
 
 
 freelo21$coeficiente
@@ -378,6 +378,7 @@ glimpse(freelo21)
 # Guardar el archivo de freelancers
 write_delim(freelo21, file = "data/freelancers_2021.csv",
             delim = ";")
+
 ### Relación de dependencia ----
 rh21 <- kiwi21 %>% 
   filter(trabajo != "Freelance") %>% 
@@ -396,14 +397,127 @@ unique(rh21$puesto)
 unique(rh21$funcion)
 
 
+
+
 rh21 <- rh21 %>% 
   filter(!puesto %in% c("Inspección de calidad", "Desarrollador", "-"),
          !funcion %in% c("Salud y Seguridad", "No trabajo en rrll", "Customer", 
-                         "Data scientist"))
-
-write_delim(rh21, file = "data/rh_2021.csv",
-            delim = ";")   
+                         "Data scientist", "No trabajo en RRHH"))
 
 
 # EDA 2021 ----
+status(rh21)
+unique(tempo1$genero)
+
+## Limpieza variable genero ----
+rh21 <- rh21 %>% 
+  mutate(genero = fct_collapse(genero, "Mujer cis" = c("Mujer cis", "Mujer", "mujer",
+                                                       "Mujer heterosexual"),
+                               "Hombre cis" = c("Hombre cis", "Hombre", 
+                                                "Hombre heterosexual")),
+         genero = factor(genero, levels = c("Mujer cis", "Hombre cis",
+                                            "Gay", "Prefiero no responder")))
+
+## Limpieza variable carrera_grado ----
+unique(rh21$carrera_grado)
+
+rh21 <- rh21 %>% 
+  mutate(carrera_grado = fct_collapse(carrera_grado,
+                                      "Relaciones Públicas" = c("Lic. en Relaciones Públicas",
+                                                                "Lic. en Relacione Publicas",
+                                                                "Relaciones Públicas e Institucionales"),
+                                      "Psicología" = c("Psicología", "Psicología Social"),
+                                      "Ingeniería Comercial" = c("Ingeniería Comercial", "INGENIERA COMERCIAL",
+                                                                 "Ingenieria comercial", "Ingeniera Comercial"),
+                                      "Ciencias de la Educación" = c("Ciencias de la Educacion", "Educación"),
+                                      "Comunicación" = c("Comunicación", "Comunicación Social", 
+                                                         "Ciencias de la Comunicación",
+                                                         "Soy Licenciada en Ciencias Comunicación y Diplomada en RRHH"),
+                                      "Sistemas" = c("Ingeniería de Sistemas", "Tecnologías de la Información")))
+unique(rh21$carrera_grado)
+
+rh21 <- rh21 %>% 
+  mutate(carrera_grado = fct_lump_min(carrera_grado,           # Agrupa carreras con un mínimo de casos
+                                      min = 4, 
+                                      other_level = "Otras"))
+
+## Limpieza columna puesto ----
+unique(rh21$puesto)
+
+rh21 <- rh21 %>% 
+  mutate(puesto = str_trim(puesto, side = "both"),
+         puesto = fct_collapse(puesto,
+                               "Gerente" = "Superintendente",
+                               "Analista" = c("Analista", "Talent Acquisition", "talent",
+                                              "Senior Recruiter","Recruiter",
+                                              "Analista semi senior", "Consultor", 
+                                              "Reclutador", "Sourcer Specialist", "Sourcer (Recruiter)",
+                                              "Tech Recruiter", "Representante"),
+                               "Administrativo" = c("Administrativo", "Técnico", "Payroll Assistant",
+                                                    "Asistente", "Auxiliar",
+                                                    "El cargo es Asistente de CH, pero leo adelante Comunicación Interna, RSE, Capacitacion"),
+                               "HRBP" = c("HRBP", "Especialista de selección por un lado (única persona en estas tareas) y HRBP de 2 equipos por otro"),
+                               "Responsable" = c("Responsable", "Supervisor", "coordinación", "Coordinadora"
+                                                 ))) 
+
+## Limpieza columna funcion ----
+unique(rh21$funcion)
+
+rh21 %>% 
+  count(funcion, sort = T)
+
+rh21 <- rh21 %>% 
+  mutate(funcion = fct_collapse(funcion,
+                                "Reclutamiento" = c("Reclutamiento y selección", "Selección & Desarrollo",
+                                                    "Candidate Experience"),
+                                "Generalista" = c("Administración de RRHH, Comunicación Interna, Rexlutamientl dr Selección, Relaciones Laborales y RSE",
+                                                  "Todos los anteriores", "Servicios Generales", "De todo un poco por ser un equipo chico",
+                                                  "todas las anteriores", "Gestión de los equipos de TH", "Deberia poder marcarse mas de una opción aquí",
+                                                  "Todas las anteriores", "RH y Gestión ( RH, RL, SO, CERTIFICACIONES", 
+                                                  "Todos los departamentos", "ADP, comunicación interna y Reclutamiento y selección",
+                                                  "Todo lo que tenga que ver con RR.HH", "Varias funciones",
+                                                  "Todas las áreas integrales de RH", "de todo un poco..!",
+                                                  "Analista gestión de RRHH", "Todo menos payroll"),
+                                "Administración de Personal" = c("Administración de personal", "Asistente administrativo"),
+                                "Payroll" = c("Payroll / Liquidación de sueldos", "Coordinación de Procesos de Liquidación",
+                                              "Administración personal, liquidación de sueldos"), 
+                                "Capacitación y Desarrollo" = c("Capacitación y desarrollo", "Generalista soft", 
+                                                                "Desarrollo de talento"),
+                                "Diseño Organizacional" = c("Diseño organizacional", "Formulación de proyectos",
+                                                            "Gestión Estrategica", "Cultura y Change Management"),
+                                "People Analytics" = c("People analytics", "HRIS", "Analista de datos - Operaciones"), 
+                                "Comunicación Interna" = c("Comunicación interna", "Comunicación, Capacitación y RSE"),
+                                "Clima & Cultura" = c("Clima y cultura", "People Experience")
+                                )) 
+
+## Limpieza columna tipo_contratacion ----
+unique(rh21$tipo_contratacion)
+
+rh21 <- rh21 %>% 
+  mutate(tipo_contratacion = fct_collapse(tipo_contratacion,
+                                          "Indeterminado" = c("Indeterminado", "Por tiempo indefinido",
+                                                              "Indefinido, no sé si sea lo mismo a indeterminado",
+                                                              "Permanente", "Prestación de servicios indeterminado (El Salvador)",
+                                                              "Plata permanente", "Indefinido", "De planta"
+                                                              ))) 
+
+## Limpieza nivel_formación ----
+
+# Agrupar niveles de formación
+
+unique(rh21$nivel_formacion)
+
+rh21 %>% 
+  mutate(nivel_formacion = fct_collapse(nivel_formacion,
+                                        "Universitario completo" = c("Diplomado de posgrado en curso",
+                                                                     "Maestría abandonada", "Maestría en curso",
+                                                                     "Diplomado de posgrado abandonado"),
+                                        "Secundario completo" = c("Universitario en curso", "Universitario abandonado",
+                                                                  "Terciario abandonado", "Terciario en curso"))) %>% 
+  group_by(nivel_formacion) %>% 
+  tally(sort = T)
+
+
+write_delim(rh21, file = "data/rh_2021.csv",
+            delim = ";")   
 
