@@ -396,7 +396,6 @@ rh21 <- rh21 %>%
 
 # EDA 2021 ----
 status(rh21)
-unique(tempo1$genero)
 
 ## Limpieza variable genero ----
 rh21 <- rh21 %>% 
@@ -506,6 +505,20 @@ rh21 %>%
   group_by(nivel_formacion) %>% 
   tally(sort = T)
 
+
+## Añadir columna sueldo dolar ----
+rh21 %>% 
+  group_by(jornada, tipo_contratacion) %>% 
+  tally()
+
+rh21 <- rh21 %>% 
+  left_join(tc, by = "pais")
+
+rh21 <- rh21 %>% 
+  mutate(multiplicador = if_else(tipo_contratacion == "Part time", 1.5, 1),
+         sueldo_ft = sueldo_bruto * multiplicador,    # Hace la equivalencia de un sueldo part time a full time
+         sueldo_dolar = sueldo_ft/tipo_cambio,  # Convierto los sueldos a dólares
+         cuenta = 1)
 
 write_delim(rh21, file = "data/rh_2021.csv",
             delim = ";")   
