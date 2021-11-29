@@ -49,17 +49,17 @@ pacman::p_load(tidyverse, funModeling, gt,
 ## 2021 ----
 
 # Encuesta
-kiwi21 <- read.csv() 
+kiwi21 <- read.csv("https://raw.githubusercontent.com/r4hr/kiwi2021/main/data/rh_2021.csv",
+                   sep = ";",
+                   encoding = "UTF-8") 
 
+kiwi20 <- read.csv("https://raw.githubusercontent.com/r4hr/kiwi2021/main/data/rh_2020.csv", 
+                   sep = ";",
+                   encoding = "UTF-8")
 
-# Tipo de cambio 2021
-tc <- read_sheet("194DbwO2TNmYkWU5Ru1m6UxuOCfXxuRlFcrWrP_JzGv8") %>% 
-  select(pais, tipo_cambio)
-
-## 2020 ----
-kiwi20 <- read_sheet("1aeuu9dVfN42EjyvbmhEcsf0ilSz2DiXU-0MpnF896ss")
-tipo_cambio <- read_sheet("1tEc4-_gXJi4lJ_Bj_ysleC-O01jiVOumOQCxGQ1tShM") %>% 
-  select(pais, tipo_cambio)
+freelo21 <- read.csv("https://raw.githubusercontent.com/r4hr/kiwi2021/main/data/freelancers_2021.csv",
+                     sep = ";",
+                     encoding = "UTF-8")
 
 # Configuraciones generales ----
 
