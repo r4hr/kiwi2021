@@ -1,0 +1,121 @@
+---
+title: "2° Encuesta KIWI de Sueldos de RRHH para Latam 2021"
+author: "R4HR Club de R para RRHH"
+date: "29/11/2021"
+output: 
+  html_document:
+    theme: cosmo
+    highlight: haddock
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.retina = 3, out.width = "70%", fig.align = "center")
+```
+
+# Introducción
+
+[R4HR Club de R para RRHH](https://r4hr.club) es una comunidad de aprendizaje de programación de R para profesionales y estudiantes que trabajen o quieran trabajar en RRHH.
+
+Somos una comunidad que usa mayormente datos de ejemplo relacionados con RRHH, y que genera contenido en castellano para eliminar las barreras en el aprendizaje y facilitar que más personas adopten las herramientas de análisis de datos en sus trabajos.
+
+Para saber más de nosotros te invitamos a leer [este post](https://r4hr.club/2020/09/23/el-club-de-r-para-rrhh/).
+
+También podés ver todo el contenido que generamos en los siguientes links:
+
+`r icons::fontawesome("google-drive")` [Google Drive](https://drive.google.com/drive/folders/1Qck3z_t6XLRXb2vbN-00931DgdJZ0yse?usp=sharing)
+
+`r icons::fontawesome("youtube")` [YouTube](https://youtube.com/playlist?list=PLZuVytUJrxQlcqu6l-P3ou4vV2mRJU2Ka)
+
+`r icons::fontawesome("github")` [Github](https://github.com/r4hr/)
+
+`r icons::fontawesome("link")` También te invitamos a seguirnos en todas [nuestras redes sociales](https://linktr.ee/r4hrclub).
+
+```{r preproceso}
+# Carga de librerías 
+# Instalar pacman install.packages("pacman")
+
+pacman::p_load(tidyverse, funModeling, gt, 
+               extrafont, scales, ggalt, kableExtra, wordcloud, networkD3,
+               data.table)
+
+
+# Carga de Datos ----
+# Datos --------
+
+## 2021 ----
+
+# Encuesta
+kiwi21 <- read.csv() 
+
+
+# Tipo de cambio 2021
+tc <- read_sheet("194DbwO2TNmYkWU5Ru1m6UxuOCfXxuRlFcrWrP_JzGv8") %>% 
+  select(pais, tipo_cambio)
+
+## 2020 ----
+kiwi20 <- read_sheet("1aeuu9dVfN42EjyvbmhEcsf0ilSz2DiXU-0MpnF896ss")
+tipo_cambio <- read_sheet("1tEc4-_gXJi4lJ_Bj_ysleC-O01jiVOumOQCxGQ1tShM") %>% 
+  select(pais, tipo_cambio)
+
+# Configuraciones generales ----
+
+options(scipen = 999)   # Modifica la visualización de los ejes numérico a valores nominales
+
+loadfonts(quiet = TRUE) # Permite cargar en R otros tipos de fuentes.
+
+# Estilo limpio sin líneas de fondo
+estilo <- theme(panel.grid = element_blank(),
+                plot.background = element_rect(fill = "#FBFCFC"),
+                panel.background = element_blank(),
+                text = element_text(family = "Roboto"))
+
+# Estilo limpio con líneas de referencia verticales en gris claro
+estilov <- theme(panel.grid = element_blank(),
+                 plot.background = element_rect(fill = "#FBFCFC"),
+                 panel.background = element_blank(),
+                 panel.grid.major.x = element_line(color = "#AEB6BF"),
+                 text = element_text(family = "Roboto"))
+
+# Estilo limpio con líneas de referencia horizontales en gris claro
+estiloh <- theme(panel.grid = element_blank(),
+                 plot.background = element_rect(fill = "#FBFCFC"),
+                 panel.background = element_blank(),
+                 panel.grid.major.y = element_line(color = "#AEB6BF"),
+                 text = element_text(family = "Roboto"))
+
+genero <- c("#8624F5", "#1FC3AA", "#FFD129", "#75838F") #Violeta - Verde - Amarillo - Gris
+genero3 <- c("#8624F5","#FFD129", "#1FC3AA")
+
+colores <-  c("#8624F5", "#1FC3AA")
+
+azul <- "#344D7E"
+verde <-  "#4A9FC7"
+rosa1 <- "#B95192"
+rosa2 <- "#EE5777"
+naranja <- "#FF764C"
+amarillo <- "#FFA600"
+gris <- "#75838F"
+lila <- "#755395"
+rojo <- "#943126"
+
+col4 <- c(azul, lila, rosa1, rosa2)
+col5 <- c(azul, lila, rosa1, rosa2, naranja)
+col6 <- c(azul, lila, rosa1, rosa2, naranja, amarillo)
+
+# Creo un objeto con un texto que se va a repetir mucho a lo largo del análisis
+fuente <- "Fuente: Encuesta KIWI de Sueldos de RRHH para Latam 2021"
+
+# Creo objetos para formatear las etiquetas numéricas de los ejes x e y
+eje_x_n <- scale_x_continuous(labels = comma_format(big.mark = ".", decimal.mark = ","))
+
+eje_y_n <- scale_y_continuous(labels = comma_format(big.mark = ".", decimal.mark = ","))
+
+
+
+
+```
+
