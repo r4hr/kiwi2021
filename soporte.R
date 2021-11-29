@@ -282,23 +282,12 @@ rh20 <- rh20 %>%
          anios_experiencia = as.numeric(unlist(anios_experiencia)),
          ajuste_porcentaje = as.numeric(unlist(ajuste_porcentaje)))
 
-# Modifica los registros
-rh20$contactos_linkedin[[150]] <- 800
-rh20$contactos_linkedin[[214]] <- 500
-rh20$contactos_linkedin[[222]] <- 1000
-rh20$contactos_linkedin[[269]] <- 500
-rh20$contactos_linkedin[[282]] <- 1000
-rh20$contactos_linkedin[[339]] <- 1000
-rh20$contactos_linkedin[[382]] <- 30000
-rh20$contactos_linkedin[[385]] <- 500
-rh20$contactos_linkedin[[398]] <- 5000
-rh20$contactos_linkedin[[445]] <- 500
-rh20$contactos_linkedin[[459]] <- 500
-rh20$contactos_linkedin[[595]] <- 500
-rh20$contactos_linkedin[[598]] <- 500
+rh20 <- rh20 %>% 
+  select(genero, nivel_formacion, pais, rubro, dotacion, origen_capital, puesto,
+         funcion_rh, anios_experiencia, tipo_contratacion, sueldo_bruto, satisfaccion,
+         busqueda)
 
-rh20 <- unnest(data = rh20, cols = c(anios_en_empresa, anios_en_puesto, anios_experiencia,
-                                 ajuste_porcentaje, contactos_linkedin), keep_empty = TRUE)
+rh20 <- unnest(data = rh20, cols = c(anios_experiencia), keep_empty = TRUE)
 
 
 # Corregir orden de puestos y simplificar género
