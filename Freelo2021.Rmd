@@ -1,0 +1,589 @@
+---
+title: "Encuesta Sueldos 2021- Freelance"
+author: "Yanel Paulette"
+date: "30/11/2021"
+output:
+  html_document:
+    theme: sandstone
+    highlight: zenburn
+    toc: true
+    toc_float: true
+    code_folding: 
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+
+## Configuraciones Grales
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+```{r echo=FALSE}
+
+
+
+# Librerías ----
+pacman::p_load(tidyverse, funModeling, googlesheets4, gargle, gt, 
+               extrafont, scales, ggalt, kableExtra, wordcloud, networkD3,
+               data.table)
+#####################################################################################################################
+
+# Configuraciones generales ----
+
+options(scipen = 999)   # Modifica la visualización de los ejes numérico a valores nominales
+
+loadfonts(quiet = TRUE) # Permite cargar en R otros tipos de fuentes.
+
+# Estilo limpio sin líneas de fondo
+estilo <- theme(panel.grid = element_blank(),
+                plot.background = element_rect(fill = "#FBFCFC"),
+                panel.background = element_blank(),
+                text = element_text(family = "Roboto"))
+
+# Estilo limpio con líneas de referencia verticales en gris claro
+estilov <- theme(panel.grid = element_blank(),
+                 plot.background = element_rect(fill = "#FBFCFC"),
+                 panel.background = element_blank(),
+                 panel.grid.major.x = element_line(color = "#AEB6BF"),
+                 text = element_text(family = "Roboto"))
+
+# Estilo limpio con líneas de referencia horizontales en gris claro
+estiloh <- theme(panel.grid = element_blank(),
+                 plot.background = element_rect(fill = "#FBFCFC"),
+                 panel.background = element_blank(),
+                 panel.grid.major.y = element_line(color = "#AEB6BF"),
+                 text = element_text(family = "Roboto"))
+
+genero <- c("#8624F5", "#1FC3AA", "#FFD129", "#75838F") #Violeta - Verde - Amarillo - Gris
+genero3 <- c("#8624F5","#FFD129", "#1FC3AA")
+
+colores <-  c("#8624F5", "#1FC3AA")
+
+azul <- "#344D7E"
+verde <-  "#4A9FC7"
+rosa1 <- "#B95192"
+rosa2 <- "#EE5777"
+naranja <- "#FF764C"
+amarillo <- "#FFA600"
+gris <- "#75838F"
+lila <- "#755395"
+rojo <- "#943126"
+
+col4 <- c(azul, lila, rosa1, rosa2)
+col5 <- c(azul, lila, rosa1, rosa2, naranja)
+col6 <- c(azul, lila, rosa1, rosa2, naranja, amarillo)
+
+# Creo un objeto con un texto que se va a repetir mucho a lo largo del análisis
+fuente <- "Fuente: Encuesta KIWI de Sueldos de RRHH para Latam 2021"
+
+# Creo objetos para formatear las etiquetas numéricas de los ejes x e y
+eje_x_n <- scale_x_continuous(labels = comma_format(big.mark = ".", decimal.mark = ","))
+
+eje_y_n <- scale_y_continuous(labels = comma_format(big.mark = ".", decimal.mark = ","))
+
+
+```
+
+
+Incorporamos la base disponible en el repositorio de Github:
+
+```{r echo=FALSE}
+
+
+
+#### Levanto la base del repo####
+
+freelo21 <- read.csv("https://raw.githubusercontent.com/r4hr/kiwi2021/main/data/freelancers_2021.csv",
+                   sep = ";", 
+                   encoding = "UTF-8")
+
+```
+
+## Respuestas  por país
+
+En el caso de las personas freelance, la mayoria de las respuestas obtenidas fueron de Argentina, es por eso que en primer lugar, hay que resaltar que los resultados no son representativos de los países. 
+
+
+```{r  echo=FALSE  }
+
+
+paises <- freelo21 %>% 
+  select(pais) %>% 
+  mutate(cuenta = 1) %>% 
+  group_by(pais) %>% 
+  summarise(Cuenta = sum(cuenta)) %>% 
+  arrange(-Cuenta)
+
+gt(paises) %>% 
+  tab_header(title = "Cantidad de respuestas por país",
+             subtitle = "Freelance") %>% 
+  tab_source_note(source_note = fuente) %>% 
+  cols_label(pais = "País")
+
+```
+
+## Respuestas por Género 
+
+La participación según el género de las personas freelance,  es la siguiente:
+
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE }
+
+
+## Limpieza variable genero ----
+freelo21 <- freelo21 %>% 
+  mutate(genero = fct_collapse(genero, "Mujer cis" = c("Mujer cis", "Mujer"),
+                               "Hombre cis" = "Hombre cis"),
+         genero = factor(genero, levels = c("Mujer cis", "Hombre cis",
+                                             "Prefiero no responder")))
+
+
+div <- freelo21 %>% 
+  select(genero) %>% 
+  filter(genero!="NA")%>%  # se saca, porque no es representativo
+  filter(genero!="Prefiero no responder")%>%  # se saca, porque no es representativo
+  group_by(genero) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+# Compute the cumulative percentages (top of each rectangle)
+div$ymax <- cumsum(div$freq)
+
+# Compute the bottom of each rectangle
+div$ymin <- c(0, head(div$ymax, n=-1))
+
+# Compute label position
+div$labelPosition <- (div$ymax + div$ymin) / 2
+
+# Compute a good label
+div$label <- paste0(div$genero, "\n Cant: ", div$n)
+
+# Make the plot
+ggplot(div, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=genero)) +
+  geom_rect() +
+  coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+  xlim(c(2, 4)) +# Try to remove that to see how to make a pie chart
+  scale_fill_manual(values = c("#8624F5",  "#1FC3AA", "#FFD129","#75838F")) +
+  theme_void() +
+  theme(legend.position = "right",
+        panel.background = element_blank(),
+        text = element_text(family = "Roboto")) +
+  labs(title = "Cantidad de respuestas según género",
+       subtitle = "Freelance",
+       fill = "Género", 
+       caption = fuente)
+
+```
+
+Podemos observar que la mayoria de las respuestas fueron de  Mujeres cis, manteniendo la misma tendencia que las personas en relación de dependencia. 
+
+```{r echo=FALSE, message=FALSE}
+
+freelo21 %>% 
+  select(genero) %>%
+  mutate(cuenta = 1) %>% 
+  group_by(genero) %>%
+  summarise(Cuenta = sum(cuenta)) %>%
+  filter(Cuenta>2)%>%
+  arrange(-Cuenta)%>%
+  rename("Género"=genero) %>% 
+  kable("html", escape=F) %>% 
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
+  row_spec(0, bold=T, color="white", background = azul)
+```
+
+## Respuestas por Educación 
+
+En esta sección queremos indagar si hay relación entre la formación y la exportacion de los servicios, y si impacta también el tipo de universidad, pública o privada, en dichas prestaciónes. 
+Primero veamos  como se distribuye la muestra entre profesionales provenientes de universidades públicas y privadas de los diferentes paises:
+
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+# Nota: Ver como agregar la tabla de referencias al grafico-
+
+freelo21 %>% 
+  select(pais, tipo_universidad) %>% 
+  ggplot(aes(y = pais, fill = tipo_universidad)) +
+  geom_bar(position = "fill") + 
+  scale_fill_manual(values = c(gris, verde, azul)) +
+  labs(title = "Distribución de respuestas por tipo de universidad por país",
+       caption = fuente, 
+       x = "", y = "") +
+  estilo +
+  theme(legend.position = "none")
+
+```
+
+
+Limitandonos al país con mayor cantidad de respuestas, Argentina, en los  siguientes graficos podemos observar  que  la distribución   por tipo de Universidad es  muy pareja , quedando un valor  minimo y poco representativo  para quienen no fueron a la Universidad: 
+
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+freelo21 %>% 
+  select(pais, tipo_universidad) %>%
+  filter (pais=="Argentina")%>% 
+  ggplot(aes(x = tipo_universidad)) + 
+  geom_bar(position = "dodge", fill = azul) +
+  theme(axis.text.x = element_text(angle = 360)) + 
+  labs(x="",y="") +
+  estiloh +
+  labs(title = "Distribución de respuestas por tipo de universidad",
+       subtitle = "Solo Argentina",
+       caption = fuente)
+
+
+```
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+
+
+## Tipo de Universidad  
+
+educ <- freelo21 %>% 
+  select(tipo_universidad) %>%  
+  group_by(tipo_universidad) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+# Compute the cumulative percentages (top of each rectangle)
+educ$ymax <- cumsum(educ$freq)
+
+# Compute the bottom of each rectangle
+educ$ymin <- c(0, head(educ$ymax, n=-1))
+
+# Compute label position
+educ$labelPosition <- (educ$ymax + educ$ymin) / 2
+
+# Compute a good label
+educ$label <- paste0(educ$tipo_universidad, "\n Cant: ", educ$n)
+
+# Make the plot
+ggplot(educ, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=tipo_universidad)) +
+  geom_rect() +
+  coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+  xlim(c(2, 4)) +# Try to remove that to see how to make a pie chart
+  scale_fill_manual(values = c(gris, verde, azul)) +
+  theme_void() +
+  theme(legend.position = "right",
+        panel.background = element_blank(),
+        text = element_text(family = "Roboto")) +
+  labs(title = "Tipo de Universidad",
+       fill = "Tipo de Universidad", 
+       caption = fuente) +
+  theme(legend.position = "left")
+```
+
+
+
+Nos interesaba indagar cuál era el nivel de formación  de los encuestados.
+
+En la siguiente tabla podemos ver que la mayoria tiene estudios  Universitarios completos: 
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+freelo21 %>% 
+  select(nivel_formacion) %>%
+  mutate(cuenta = 1) %>% 
+  group_by(nivel_formacion) %>%
+  summarise(Cuenta = sum(cuenta)) %>% 
+  arrange(-Cuenta)%>% 
+  select(nivel_formacion,Cuenta) %>% 
+  rename("Nivel de Formación"=nivel_formacion) %>% 
+  kable("html", escape=F) %>% 
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
+  row_spec(0, bold=T, color="white", background = azul)
+```
+
+Cuando  analizamos educación, nos resultó  interesante analizar la distribucion por género y nivel educativo.
+
+En el siguiente gráfico podemos observar que las mujeres tienen mayor nivel de formación que los hombres:
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+freelo21 %>% 
+  select(pais, nivel_formacion, genero) %>%
+  filter(genero != "Prefiero no responder") %>% # sacar porque no es representativo
+  filter(nivel_formacion != "NA") %>%           # sacar porque no es representativo
+  mutate(nivel_formacion = factor(nivel_formacion,
+                                  levels = c("Terciario completo","Terciario abandonado", "Diplomado de posgrado en curso","Diplomado de posgrado completo","Universitario en curso", "Universitario completo", "Maestría completa"))) %>% 
+  group_by(nivel_formacion) %>% 
+  ggplot(aes (y= nivel_formacion, fill = genero)) + 
+  geom_bar(position = "fill") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  labs(x="",y="") +
+  scale_fill_manual(values = colores) +
+  estilo +
+  theme(legend.position = "top") +
+  labs(title = "Máximo nivel educativo alcanzado por género",
+       subtitle = "Distribución por frecuencias absolutas",
+       caption = fuente, 
+       fill = "Género")
+
+```
+
+
+Veamos los mismos resultados, en terminos relativos: 
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+#Esta bien la proporcion?? ver!! 
+
+
+
+fr_fem <- freelo21 %>% 
+  filter(genero == "Mujer cis") %>% 
+  group_by(genero, nivel_formacion) %>% 
+  mutate(nivel_formacion = factor(nivel_formacion,
+                                  levels = c("Terciario completo","Terciario abandonado", "Diplomado de posgrado en curso","Diplomado de posgrado completo","Universitario en curso", "Universitario completo", "Maestría completa"))) %>% 
+  group_by(nivel_formacion) %>% 
+  summarise(n = n()) %>% 
+  mutate(frecuencia = round(n/sum(n),2),
+         genero = "Mujer cis") 
+
+
+fr_mas <- freelo21 %>% 
+  filter(genero == "Hombre cis") %>% 
+  group_by(genero, nivel_formacion) %>% 
+  mutate(nivel_formacion = factor(nivel_formacion,
+                                  levels = c("Terciario completo","Terciario abandonado", "Diplomado de posgrado en curso","Diplomado de posgrado completo","Universitario en curso", "Universitario completo", "Maestría completa"))) %>% 
+  group_by(nivel_formacion) %>% 
+  summarise(n = n()) %>% 
+  mutate(frecuencia = round(n/sum(n),2),
+         genero = "Hombre cis") 
+
+fr_total <- rbind(fr_fem, fr_mas )
+
+ggplot(fr_total, aes(x = nivel_formacion, y = frecuencia, fill = genero)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 90), 
+        legend.position = "none") + 
+  labs(x="",y="") +
+  scale_fill_manual(values = colores) +
+  facet_wrap(~genero, ncol = 2) +
+  estiloh +
+  labs(title = "Proporción de nivel educativo máximo por género",
+       subtitle = "Freelance",
+       x = "", y = "Proporción", 
+       caption = fuente)
+
+
+```
+
+
+Respecto a las  carreras, vemos que la tendencia de las mismas se corresponden con los resultados obtenidos en las personas en relación de dependencia: 
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+carrerasfr <- freelo21 %>% 
+  select(nivel_formacion, carrera_grado, tipo_universidad, pais, genero) %>% 
+  mutate(carrera_grado = factor(carrera_grado))
+
+carrerasfr <- carrerasfr %>% 
+  mutate(carrera_grado = fct_collapse(carrera_grado, 
+                                    "RRHH / RRLL / RRTT" = c("RRHH / RRLL / RRTT", "Y ahora Relaciones Laborales")),
+         carrera_grado = fct_collapse(carrera_grado, 
+                                      "Psicología" = c("Psicología")),
+         carrera_grado = fct_collapse(carrera_grado, 
+                                      "Administración de Empresas" = c("Administración de Empresas")),
+  
+         carrera_grado = fct_lump(carrera_grado, 
+                                  prop = 0.02, 
+                                  other_level = "Otros"),
+           carrera_grado = factor(carrera_grado, levels = c("RRHH / RRLL / RRTT", "Psicología", "Administración de Empresas", "Otros")))
+
+
+ggplot(carrerasfr, aes(x = carrera_grado)) +
+  geom_bar(position = "dodge", fill = azul) +
+  theme(axis.text.x = element_text(angle = 360)) + 
+  labs(x="",y="") +
+  estiloh +
+  labs(title = "Principales carreras estudiadas",
+       subtitle = "Freelance",
+       caption = fuente)
+```
+
+## Respuestas por Condición fiscal
+
+La condidición fiscal de  los encuestados la podemos observar en la siguiente tabla:
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+
+fiscofr <- freelo21 %>% 
+  select(trabajo, registro_fiscal, medio_pago_exterior) %>% 
+  mutate(registro_fiscal = factor(registro_fiscal))%>%
+  mutate(registro_fiscal = fct_collapse(registro_fiscal, 
+                                      "Monotributista" = "Monotributista"),
+         registro_fiscal = fct_collapse(registro_fiscal, 
+                                        "Contractor" = "Contractor"),
+         registro_fiscal = fct_collapse(registro_fiscal, 
+                                        "Responsable inscripto" = "Responsable inscripto"),
+          registro_fiscal = fct_collapse(registro_fiscal, 
+                                        "SA" = "SA"),
+         registro_fiscal = fct_collapse(registro_fiscal, 
+                                        "Otros" = c("No estoy registrada por el momento","Spa","tengo un contrato mixto rel dependencia y  freelance")),
+         carrera_grado = factor(registro_fiscal,
+                                levels = c("Monotributista", "Contractor", "Responsable inscripto","SA", "Otros")))
+
+
+fiscofr %>% 
+  select(registro_fiscal) %>%
+  mutate(cuenta = 1) %>% 
+  group_by(registro_fiscal) %>%
+  summarise(Cuenta = sum(cuenta)) %>% 
+  arrange(-Cuenta)%>% 
+  rename("Registro Fiscal"=registro_fiscal) %>% 
+  kable("html", escape=F) %>% 
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
+  row_spec(0, bold=T, color="white", background = azul)
+
+```
+
+##  Respuestas por Exportación de  Servicio
+
+En el siguiente grafico, observamos que  la mayoria de los encuestados no exporta sus servicios: 
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+exp <- freelo21 %>% 
+  select(exporta) %>% 
+ filter(exporta!="NA") %>% 
+  group_by(exporta) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+# Compute the cumulative percentages (top of each rectangle)
+exp$ymax <- cumsum(exp$freq)
+
+# Compute the bottom of each rectangle
+exp$ymin <- c(0, head(exp$ymax, n=-1))
+
+# Compute label position
+exp$labelPosition <- (exp$ymax + div$ymin) / 2
+
+# Compute a good label
+exp$label <- paste0(exp$exporta, "\n Cant: ", div$n)
+
+# Make the plot
+ggplot(exp, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=exporta)) +
+  geom_rect() +
+  coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+  xlim(c(2, 4)) +# Try to remove that to see how to make a pie chart
+  scale_fill_manual(values = c("#8624F5",  "#1FC3AA", "#FFD129","#75838F")) +
+  theme_void() +
+  theme(legend.position = "right",
+        panel.background = element_blank(),
+        text = element_text(family = "Roboto")) +
+  labs(title = "Exporta Servicios",
+       fill = "", 
+       caption = fuente)
+```
+
+
+Pero  utilizamos el siguiente gráfico para analizar de  quienes exportan, cuál es el servicio prestado: 
+
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+
+sv_fr <- freelo21 %>% 
+  filter(servicio_principal != "NA")%>% 
+  filter(servicio_principal != "Start up del area de HR inpmentacion de politicas y procesos, busqueda y seleccion, asesoramiento en general del area")%>% 
+  select(servicio_principal, exporta) %>%
+  filter(exporta=="Si")%>%
+mutate(servicio_principal = factor(servicio_principal,
+                              levels = c("Payroll / Liquidación de sueldos", "Diseño organizacional", "Capacitación", "Comunicación interna","People Analytics","HR Generalista")))
+
+ggplot(sv_fr, (aes(x = servicio_principal, fill = exporta))) + 
+  geom_bar(position = "dodge") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  labs(x="",y="") +
+  estilov +
+  scale_fill_manual(values = c(verde)) +
+  coord_flip() +
+  labs(title = "Respuestas según Servicio Exportado",
+       subtitle = "Freelance",
+       x = "", fill = "Exporta",
+       caption = fuente)
+```
+
+
+Respecto a los medios de pago utilizados por quienes exportan, sus respuestas fueron las siguientes: 
+
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+
+mp_fr <-freelo21%>%
+  mutate(medio_pago_exterior = fct_collapse(medio_pago_exterior, 
+                                        "Payoneer" = c("Payoneer")),
+         medio_pago_exterior = fct_collapse(medio_pago_exterior, 
+                                        "Transferencia" = c("Transferencia a tu cuenta")),
+         medio_pago_exterior = fct_collapse(medio_pago_exterior, 
+                                        "PayPal" = c("PayPal")),
+         medio_pago_exterior = fct_collapse(medio_pago_exterior, 
+                                            "Bitcoin" = c("Bitcoin")),
+         medio_pago_exterior = fct_collapse(medio_pago_exterior, 
+                                            "Western Union" = c("Western Union")),
+         medio_pago_exterior = fct_collapse(medio_pago_exterior, 
+                                            "Prex" = c("Prex")),
+         medio_pago_exterior = fct_collapse(medio_pago_exterior, 
+                                            "NO" = c("-","0","N/A","no","No","No aplica","No exporti por ahora","no exporto","No exporto" ,"No exporto servicios","No exporto.","No trabajo para afuera aún","Xxxx")),
+         carrera_grado = factor(medio_pago_exterior,
+                                levels = c("Payoneer", "Transferencia", "PayPal", "Bitcoin","Western Union","Prex","NO")))
+
+
+
+mp_fr %>% 
+  filter(medio_pago_exterior!="NO")%>% 
+  mutate(cuenta = 1) %>% 
+  group_by(medio_pago_exterior) %>%
+  summarise(Cuenta = sum(cuenta)) %>% 
+  arrange(-Cuenta)%>% 
+  select(medio_pago_exterior,Cuenta) %>% 
+  rename("Medios de Pago Exterior"=medio_pago_exterior) %>% 
+  kable("html", escape=F) %>% 
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
+  row_spec(0, bold=T, color="white", background = azul)
+
+```
+
+## Respuestas por  Antiguedad
+
+Respecto a los años de experiencia como freelance, podemos observar que la mayoria tiene menos de dos años. 
+Un interrogante que nos surge en si la inserción en esta modalidad fue una decisión de carrera voluntaria o impulsada por las consecuencias de la pandemia. Carecemos de elementos para responder esa pregunta, por eso nos limitamos a  presentar las respuestas obbtenidas: 
+
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+ant_fr<- freelo21 %>% 
+  mutate(rango_ant =case_when(
+    anios_freelance < 2 ~ "Menos de 2 años",
+    anios_freelance < 6 ~ "Entre 2 y 5 años",
+    anios_freelance < 11 ~ "Entre 5 y 10 años",
+    anios_freelance = T ~ "Más de 10 años"),
+    rango_ant = fct_relevel(rango_ant, c("Menos de 2 años", "Entre 2 y 5 años",
+                                                       "Entre 5 y 10 años", "Más de 10 años")))
+ ant_fr %>%
+  select(rango_ant) %>%
+  mutate(cuenta = 1) %>% 
+  group_by(rango_ant) %>%
+  summarise(Cuenta = sum(cuenta)) %>% 
+  arrange(-Cuenta)%>% 
+  rename("Años de Experiencia"=rango_ant) %>% 
+ # rename("Exporta"=exporta) %>% 
+  kable("html", escape=F) %>% 
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
+  row_spec(0, bold=T, color="white", background = azul)
+
+```
