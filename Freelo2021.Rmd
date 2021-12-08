@@ -31,7 +31,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Librerías ----
 pacman::p_load(tidyverse, funModeling, googlesheets4, gargle, gt, 
                extrafont, scales, ggalt, kableExtra, wordcloud, networkD3,
-               data.table)
+               data.table, ggplot2)
 #####################################################################################################################
 
 # Configuraciones generales ----
@@ -91,7 +91,7 @@ eje_y_n <- scale_y_continuous(labels = comma_format(big.mark = ".", decimal.mark
 ```
 
 
-Incorporamos la base disponible en el repositorio de Github:
+Incorporamos la base disponible en el repositorio de Github
 
 ```{r echo=FALSE}
 
@@ -107,7 +107,8 @@ freelo21 <- read.csv("https://raw.githubusercontent.com/r4hr/kiwi2021/main/data/
 
 ## Respuestas  por país
 
-En el caso de las personas freelance, la mayoria de las respuestas obtenidas fueron de Argentina, es por eso que en primer lugar, hay que resaltar que los resultados no son representativos de los países. 
+En el caso de las personas freelance, la mayoría de las respuestas obtenidas fueron de Argentina.
+Por eso reiteramos, que los resultados no son representativos de los países. 
 
 
 ```{r  echo=FALSE  }
@@ -182,7 +183,7 @@ ggplot(div, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=genero)) +
 
 ```
 
-Podemos observar que la mayoria de las respuestas fueron de  Mujeres cis, manteniendo la misma tendencia que las personas en relación de dependencia. 
+Podemos observar que la mayoría de las respuestas fueron de  Mujeres cis, manteniendo la misma tendencia que las personas en relación de dependencia. 
 
 ```{r echo=FALSE, message=FALSE}
 
@@ -288,7 +289,7 @@ ggplot(educ, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=tipo_universidad)) +
 
 Nos interesaba indagar cuál era el nivel de formación  de los encuestados.
 
-En la siguiente tabla podemos ver que la mayoria tiene estudios  Universitarios completos: 
+En la siguiente tabla podemos ver que la mayoría tiene estudios  Universitarios completos: 
 
 ```{r  echo=FALSE , message= FALSE,  warning = FALSE}
 
@@ -305,7 +306,7 @@ freelo21 %>%
   row_spec(0, bold=T, color="white", background = azul)
 ```
 
-Cuando  analizamos educación, nos resultó  interesante analizar la distribucion por género y nivel educativo.
+Cuando  analizamos educación, nos resultó  interesante analizar la distribución por género y nivel educativo.
 
 En el siguiente gráfico podemos observar que las mujeres tienen mayor nivel de formación que los hombres:
 
@@ -451,7 +452,7 @@ fiscofr %>%
 
 ##  Respuestas por Exportación de  Servicio
 
-En el siguiente grafico, observamos que  la mayoria de los encuestados no exporta sus servicios: 
+como vemos a continuación,  la mayoría no exporta sus servicios: 
 ```{r  echo=FALSE , message= FALSE,  warning = FALSE}
 
 exp <- freelo21 %>% 
@@ -490,7 +491,7 @@ ggplot(exp, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=exporta)) +
 ```
 
 
-Pero  utilizamos el siguiente gráfico para analizar de  quienes exportan, cuál es el servicio prestado: 
+Focalizandonos entre quienes exportan, podemos ver cuál es el servicio prestado: 
 
 
 ```{r  echo=FALSE , message= FALSE,  warning = FALSE}
@@ -518,7 +519,7 @@ ggplot(sv_fr, (aes(x = servicio_principal, fill = exporta))) +
 ```
 
 
-Respecto a los medios de pago utilizados por quienes exportan, sus respuestas fueron las siguientes: 
+En relación a los medios de pago utilizados por quienes exportan, sus respuestas fueron las siguientes: 
 
 
 ```{r  echo=FALSE , message= FALSE,  warning = FALSE}
@@ -558,10 +559,11 @@ mp_fr %>%
 
 ```
 
-## Respuestas por  Antiguedad
+## Respuestas por  Antigüedad
 
-Respecto a los años de experiencia como freelance, podemos observar que la mayoria tiene menos de dos años. 
-Un interrogante que nos surge en si la inserción en esta modalidad fue una decisión de carrera voluntaria o impulsada por las consecuencias de la pandemia. Carecemos de elementos para responder esa pregunta, por eso nos limitamos a  presentar las respuestas obbtenidas: 
+Respecto a los años de experiencia como freelance, podemos observar que la mayoría tiene menos de dos años.
+
+Un interrogante que nos surge en si la inserción en esta modalidad fue una decisión de carrera voluntaria o impulsada por las consecuencias de la pandemia. Carecemos de elementos para responder esa pregunta, por eso nos limitamos a  presentar las respuestas obtenidas: 
 
 
 ```{r  echo=FALSE , message= FALSE,  warning = FALSE}
@@ -587,3 +589,172 @@ ant_fr<- freelo21 %>%
   row_spec(0, bold=T, color="white", background = azul)
 
 ```
+
+## Respuestas por  Búsquedas
+
+Nos interesa saber cuantos se dedican a realizar trabajos de selección de talentos. 
+
+Podemos observar que un 66% de las personas encuestadas en esta categoria se dedican a la tarea de búsqueda. 
+
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+freelo21 %>% 
+  select(servicio_busqueda) %>%
+  mutate(cuenta = 1) %>% 
+  group_by(servicio_busqueda) %>%
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)%>% 
+rename("Serv. Búsqueda"=servicio_busqueda) %>%
+   kable("html", escape=F) %>% 
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
+  row_spec(0, bold=T, color="white", background = azul)
+
+```
+
+Sabiendo el crecimiento y auge de las búsquedas en el sector de IT, veamos cuál es la participación de las mismas entre las personas que hacen recruiting. 
+
+Como se observa en el siguiente gráfico, la mayoría de las búsquedas se concentran que en el sector IT. 
+
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+
+it_fr<- freelo21 %>% 
+  select(busqueda_it, servicio_busqueda) %>% 
+  filter(servicio_busqueda=="Si") 
+
+
+ggplot(it_fr, (aes(x = busqueda_it, fill = servicio_busqueda))) + 
+  geom_bar(position = "dodge") +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  labs(x="",y="") +
+  estilov +
+  scale_fill_manual(values = c(verde)) +
+  coord_flip() +
+  labs(title = "Servicio de Búsqueda",
+       subtitle = "Freelance",
+       x = "", fill = "IT",
+       caption = fuente)
+```
+
+
+## Respuesta por garantía de trabajo
+
+Las garantías de reposición de vacantes se refieren a la protección que se brinda a cada cliente en el caso de que la persona contratada   se marche de la empresa.
+
+Veamos entre los que  prestan  el servicio de recruiting, quienes ofrecen garantía de permanencia del candidato. 
+
+
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+
+gtia <- freelo21 %>% 
+#  select(garantia,servicio_busqueda) %>% 
+  filter(servicio_busqueda=="Si") %>% 
+  mutate(garantia=fct_collapse(garantia, "Si" = c("1 mes","2 meses", "3 meses")),
+         garantia=fct_collapse(garantia, "No" = c("No ofrezco garantía")),
+          garantia = factor(garantia, levels =c("Si","No" )))
+
+
+gtia2 <- gtia %>% 
+  select(garantia) %>% 
+  group_by(garantia) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+# Compute the cumulative percentages (top of each rectangle)
+gtia2$ymax <- cumsum(gtia2$freq)
+
+# Compute the bottom of each rectangle
+gtia2$ymin <- c(0, head(gtia2$ymax, n=-1))
+
+# Compute label position
+gtia2$labelPosition <- (gtia2$ymax + gtia2$ymin) / 2
+
+# Compute a good label
+gtia2$label <- paste0(gtia2$garantia, "\n Cant: ", gtia2$n)
+
+# Make the plot
+ggplot(gtia2, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=garantia)) +
+  geom_rect() +
+  coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+  xlim(c(2, 4)) +# Try to remove that to see how to make a pie chart
+  scale_fill_manual(values = c( verde, azul)) +
+  theme_void() +
+  theme(legend.position = "right",
+        panel.background = element_blank(),
+        text = element_text(family = "Roboto")) +
+  labs(title = "Garantía de Permanencia",
+       fill = "", 
+       caption = fuente) +
+  theme(legend.position = "left")
+
+
+
+
+```
+
+
+
+En la siguiente tabla podemos observar que los plazos de garantía suelen ir desde un mes hasta los tres meses. Pero un número importante, no ofrece garantia por el  servicio contratado.
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+gtia2 <- freelo21 %>% 
+#  select(garantia,servicio_busqueda) %>% 
+  filter(servicio_busqueda=="Si") %>% 
+  mutate( garantia=fct_collapse(garantia, "No" = c("No ofrezco garantía")),
+          garantia = factor(garantia, levels =c("Si","No" )))
+
+                                                      
+ freelo21 %>%
+  select(garantia, servicio_busqueda) %>%
+  filter(servicio_busqueda=="Si")%>%
+  mutate( garantia=fct_collapse(garantia, "No ofrece garantía" = "No ofrezco garantía")) %>% 
+  mutate(cuenta = 1) %>% 
+  group_by(garantia) %>%
+  summarise(Cuenta = sum(cuenta)) %>% 
+ # arrange(-Cuenta)%>% 
+  rename("Garantía"=garantia) %>% 
+  kable("html", escape=F) %>% 
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
+  row_spec(0, bold=T, color="white", background = azul)
+
+```
+
+## Respuestas por Base de Coeficiente
+
+Otro punto para destacar es el precio del servicio de quienes hacen recruiting.
+
+Podemos ver que la gran mayoría  cobra por dicho servicio el importe referido a la remuneración mensual del ingresante, dejando para muy pocos casos el ingreso anual del mismo.
+
+Una pregunta abierta que nos queda, es cuáles son las posiciones mejores pagas para los recruiters. Sin embargo, dicho análisis escapa de los objetivos de la presente encuesta.  
+
+```{r  echo=FALSE , message= FALSE,  warning = FALSE}
+
+coef_fr<- freelo21 %>% 
+  mutate(base_coeficiente=fct_collapse(base_coeficiente, "Mensual" = "Remuneración mensual del ingresante"),
+         base_coeficiente=fct_collapse(base_coeficiente, "Anual" = "Remuneración anual del ingresante"),
+          base_coeficiente = factor(base_coeficiente, levels =c("Mensual","Anual" )))
+
+
+ coef_fr %>%
+  select(servicio_busqueda,base_coeficiente) %>%
+  filter(servicio_busqueda=="Si") %>% 
+  mutate(cuenta = 1) %>% 
+  group_by(base_coeficiente) %>%
+  summarise(Cuenta = sum(cuenta)) %>% 
+  arrange(-Cuenta)%>% 
+  rename("Remuneración del Ingresante"=base_coeficiente) %>% 
+  kable("html", escape=F) %>% 
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
+  row_spec(0, bold=T, color="white", background = azul)
+
+
+```
+
+
