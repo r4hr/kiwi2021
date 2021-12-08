@@ -711,26 +711,17 @@ gtia2 <- freelo21 %>%
           garantia = factor(garantia, levels =c("Si","No" )))
 
                                                       
- freelo21 %>%
-  select(garantia, servicio_busqueda) %>%
-  filter(servicio_busqueda=="Si")%>%
-  mutate( garantia=fct_collapse(garantia, "No ofrece garantía" = "No ofrezco garantía")) %>% 
-  mutate(cuenta = 1) %>% 
-  group_by(garantia) %>%
-  summarise(Cuenta = sum(cuenta)) %>% 
- # arrange(-Cuenta)%>% 
-  rename("Garantía"=garantia) %>% 
-  kable("html", escape=F) %>% 
-  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
-  row_spec(0, bold=T, color="white", background = azul)
+
 
 ```
 
 ## Respuestas por Base de Coeficiente
 
+
 Otro punto para destacar es el precio del servicio de quienes hacen recruiting.
 
-Podemos ver que la gran mayoría  cobra por dicho servicio el importe referido a la remuneración mensual del ingresante, dejando para muy pocos casos el ingreso anual del mismo.
+Podemos ver que la gran mayoría  cobra   por dicho servicio, un porcentaje de  remuneración mensual del ingresante, dejando para muy pocos casos el ingreso anual del mismo.
+
 
 Una pregunta abierta que nos queda, es cuáles son las posiciones mejores pagas para los recruiters. Sin embargo, dicho análisis escapa de los objetivos de la presente encuesta.  
 
@@ -757,4 +748,56 @@ coef_fr<- freelo21 %>%
 
 ```
 
+La mayoría cobra un porcentaje  que va del  20% al 30% de  las remuneraciones mensuales de los ingresantes, como podemos ver en el siguiente cuadro:
+
+
+```{r echo=FALSE , message= FALSE,  warning = FALSE}
+
+## armo las categorias
+
+#freelo21$coeficiente #consulto categorias
+
+n_coef<- freelo21 %>% 
+  select(servicio_busqueda,coeficiente,base_coeficiente) %>% 
+  filter(servicio_busqueda=="Si") %>% 
+  filter(base_coeficiente=="Remuneración mensual del ingresante") %>% 
+  filter(coeficiente>10)%>%  #Filtro entre 0-100 (decido eliminar 1.2,1.5,2.0 y otros, porque no es clara su categorizacion)
+  filter(coeficiente<101) %>% 
+  mutate(coeficiente =case_when(
+      coeficiente < 11 ~ "10%",
+    coeficiente < 21 ~ "20%",
+    coeficiente < 31 ~ "30%",
+        coeficiente < 41 ~ "40%",
+    coeficiente < 51 ~ "50%",
+    coeficiente < 61 ~ "60%",
+    coeficiente < 71 ~ "70%",
+    coeficiente < 81 ~ "80%",
+    coeficiente < 91 ~ "90%",
+    coeficiente <101 ~ "100%",
+    coeficiente = T ~ "Otros"),
+    coeficiente = fct_relevel(coeficiente, c("10%","20%","30%","40%","50%","60%","70%","80%","90%","100%","Otros")))
+  
+# agrupo las categorias en una tabla.
+
+ n_coef<- n_coef %>%
+  select(coeficiente) %>%
+  mutate(cuenta = 1) %>% 
+  group_by(coeficiente) %>%
+  summarise(Cuenta = sum(cuenta)) %>% 
+  #arrange(-Cuenta)%>% 
+  rename("Porcentaje"=coeficiente)
+ 
+ n_coef$TIP <- c("% Sobre la Remuneración Mensual") # al pasar el cursor se ve
+ 
+ #Tabla
+
+n_coef %>% 
+  mutate(Cuenta=text_spec(Cuenta, "html", tooltip=TIP)) %>% 
+    select(Porcentaje,Cuenta) %>% 
+  kable("html", escape=F) %>% 
+  kable_styling(full_width = TRUE, bootstrap_options = c("striped","hover","condensed" )) %>% 
+  row_spec(0, bold=T, color="white", background = azul)
+
+
+```
 
