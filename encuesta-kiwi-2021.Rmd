@@ -34,11 +34,13 @@ También podés ver todo el contenido que generamos en los siguientes links:
 
 `r icons::fontawesome("link")` También te invitamos a seguirnos en todas [nuestras redes sociales](https://linktr.ee/r4hrclub).
 
+Pueden acceder a los datos crudos desde [este link](https://docs.google.com/spreadsheets/d/1LDdXlIwrcsyuywbcS4gdc-1p6wBXfEfL2Y6sNBj-4GM/edit?usp=sharing).
+
 ```{r preproceso}
 # Carga de librerías 
 # Instalar pacman install.packages("pacman")
 
-pacman::p_load(tidyverse, funModeling, gt, 
+pacman::p_load(tidyverse, funModeling, gt, googlesheets4,gt,
                extrafont, scales, ggalt, kableExtra, wordcloud, networkD3,
                data.table)
 
@@ -60,6 +62,8 @@ kiwi20 <- read.csv("https://raw.githubusercontent.com/r4hr/kiwi2021/main/data/rh
 freelo21 <- read.csv("https://raw.githubusercontent.com/r4hr/kiwi2021/main/data/freelancers_2021.csv",
                      sep = ";",
                      encoding = "UTF-8")
+
+kiwi21_original <- read_sheet("1nhpqDWuJoWhiVj0rIaV51-SdfnSxTpbV3Vcd3iYmyTw")
 
 # Configuraciones generales ----
 
@@ -115,7 +119,168 @@ eje_x_n <- scale_x_continuous(labels = comma_format(big.mark = ".", decimal.mark
 eje_y_n <- scale_y_continuous(labels = comma_format(big.mark = ".", decimal.mark = ","))
 
 
+# Cantidad de respuestas 
 
+rtas21 <- nrow(kiwi21_original)
+
+rtas21_perc <- percent(1- (rtas21 / 762))
+
+rtas_pais <- kiwi21_original %>% 
+  select(pais = `País en el que trabajas`) %>% 
+  distinct(pais) %>% 
+  count() %>% 
+  pull()
+```
+
+# Motivaciones
+
+Como en RRHH trabajamos con datos sensibles, es complejo conseguir datos para practicar cuando estás aprendiendo sobre People Analytics, especialmente la parte práctica. Por eso, e inspirados en la Encuesta de [SysArmy](https://sysarmy.com/blog/posts/resultados-de-la-encuesta-de-sueldos-2020-2/), una comunidad de tecnología, que entre otras cosas, organiza eventos como **Nerdearla**.
+
+Por esta razón hicimos nuestra propia encuesta, relevando datos de profesionales que trabajan tanto bajo relación de dependencia como de manera freelance. El relevamiento de datos lo hicimos entre el 22 de octubre y el 22 de noviembre de 2021.
+
+En esta edición recibimos en total `r rtas21` respuestas (un `r rtas21_perc` menos que en 2020), de `r rtas_pais` países diferentes.
+
+```{r rtas_pais_tabla}
+kiwi21 %>% 
+  group_by(pais) %>% 
+  tally(sort = T) %>% 
+  rename("País" = pais,
+         "Respuestas" = n) %>% 
+  kbl(caption = "Respuestas por País", ) %>% 
+  kable_styling(full_width = F, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  footnote(general = fuente)
+```
+
+Del total de respuestas recibidas, `r nrow(kiwi21_original) - nrow(freelo21)` son de personas que trabajan en relación de dependencia en RRHH, mientras que `r nrow(freelo21)` personas trabajan de manera freelance.
+
+```{r}
+kiwi21_original %>% 
+  select(Trabajo) %>% 
+  group_by(Trabajo) %>% 
+  count() %>% 
+  ggplot(aes(x = n, y = Trabajo)) +
+  geom_col(fill = azul) +
+  estilov +
+  geom_text(aes(label = n), # Indica la cantidad de decimales
+            size = 3,       # Cambia el tamaño de la letra
+            hjust = 1.2,    # Mueve la etiqueta para la izquierda
+            color = "white",
+            family = "Roboto") +
+  labs(title = "Respuestas por tipo de trabajador", 
+       x = "", y = "", 
+       caption = fuente)
+```
+
+Participación según el género de los participantes.
+
+```{r fig.show='hold', out.width="50%", fig.align='default'}
+
+# Gráfico para relación de dependencia----
+div <- kiwi21 %>% 
+  select(genero) %>% 
+  mutate(genero = factor(genero, 
+                         levels = c("Mujer cis", "Hombre cis", 
+                                    "Prefiero no responder", "Gay"))) %>% 
+  group_by(genero) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+# Compute the cumulative percentages (top of each rectangle)
+div$ymax <- cumsum(div$freq)
+
+# Compute the bottom of each rectangle
+div$ymin <- c(0, head(div$ymax, n=-1))
+
+# Compute label position
+div$labelPosition <- (div$ymax + div$ymin) / 2
+
+# Compute a good label
+div$label <- paste0(div$genero, "\n Cant: ", div$n)
+
+# Make the plot
+ggplot(div, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=genero)) +
+  geom_rect() +
+  coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+  xlim(c(2, 4)) +# Try to remove that to see how to make a pie chart
+  scale_fill_manual(values = c("#8624F5",  "#1FC3AA", "#FFD129","#75838F")) +
+  theme_void() +
+  theme(legend.position = "top",
+        panel.background = element_blank(),
+        plot.title.position = "plot",
+        text = element_text(family = "Roboto")) +
+  labs(title = "Cantidad de respuestas según género",
+       subtitle = "Relación de Dependencia",
+       fill = "Género", 
+       caption = fuente)
+
+# Gráfico de freelancers ----
+freelo21 <- freelo21 %>% 
+  mutate(genero = fct_collapse(genero, "Mujer cis" = c("Mujer cis", "Mujer"),
+                               "Hombre cis" = c("Hombre cis")),
+         genero = factor(genero, levels = c("Mujer cis", "Hombre cis",
+                                             "Prefiero no responder", "No binario")))
+
+div <- freelo21 %>% 
+  select(genero) %>% 
+  group_by(genero) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+# Compute the cumulative percentages (top of each rectangle)
+div$ymax <- cumsum(div$freq)
+
+# Compute the bottom of each rectangle
+div$ymin <- c(0, head(div$ymax, n=-1))
+
+# Compute label position
+div$labelPosition <- (div$ymax + div$ymin) / 2
+
+# Compute a good label
+div$label <- paste0(div$genero, "\n Cant: ", div$n)
+
+# Make the plot
+ggplot(div, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=genero)) +
+  geom_rect() +
+  coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+  xlim(c(2, 4)) +# Try to remove that to see how to make a pie chart
+  scale_fill_manual(values = c("#8624F5",  "#1FC3AA", "#FFD129","#75838F")) +
+  theme_void() +
+  theme(legend.position = "top",
+        panel.background = element_blank(),
+        plot.title.position = "plot",
+        text = element_text(family = "Roboto")) +
+  labs(title = "Cantidad de respuestas según género",
+       subtitle = "Freelancers",
+       fill = "Género", 
+       caption = fuente)
 
 ```
 
+En resumen, más de dos tercios de las personas que participaron de esta encuesta son mujeres cis.
+
+```{r genero_participantes}
+kiwi21_original %>% 
+    mutate(genero = fct_collapse(`Identidad de Género`, "Mujer cis" = c("Mujer cis", "Mujer", "mujer",
+                                                       "Mujer heterosexual"),
+                               "Hombre cis" = c("Hombre cis", "Hombre", 
+                                                "Hombre hetero. Que es cis?",
+                                                "Hombre heterosexual")),
+         genero = factor(genero, levels = c("Mujer cis", "Hombre cis",
+                                            "Gay", "Prefiero no responder", "No binario"))) %>% 
+  group_by(genero) %>% 
+  tally(sort = T) %>% 
+  mutate(Porcentaje = n/sum(n),
+         Porcentaje = percent(Porcentaje, accuracy = 0.1)) %>% 
+  rename("Género" = genero, 
+         "Cantidad" = n) %>% 
+  kbl(caption = "Participantes según\nIdentidad de Género") %>% 
+  kable_styling(full_width = F, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  footnote(general = fuente, general_title = "")
+  
+
+
+```
