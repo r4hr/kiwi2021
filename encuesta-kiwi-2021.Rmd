@@ -172,7 +172,13 @@ kiwi21_original %>%
        caption = fuente)
 ```
 
-Participación según el género de los participantes.
+En esta edición decidimos realizar los análisis de género en términos de **Identidad de Género** para intentar abarcar con nuestro análisis la diversidad en términos de identidad de género. Es por esta razón que, a diferencia de la primera edición donde los análisis los hicimos en términos de *Mujer/Hombre* este año lo hicimos en términos de *Mujer cis/Mujer trans* y *Hombre cis/Hombre trans* para poder reflejar con mayor precisión el abánico de identidades y percepciones.
+
+> El térmiino *"cis"* hace referencia a que la persona se identifica con el mismo género con el que nació.
+
+Le agradecemos mucho a [Ivana Feldeberg](https://www.linkedin.com/in/ivana-feldfeber/) del [Observatorio de Datos con Perspectiva de Género](https://www.datagenero.org/) por el asesoramiento en este apartado.
+
+Dicho esto, las respuestas según la identidad de género de las personas que participaron es la siguiente:
 
 ```{r fig.show='hold', out.width="50%", fig.align='default'}
 
@@ -259,7 +265,7 @@ ggplot(div, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=genero)) +
 
 ```
 
-En resumen, más de dos tercios de las personas que participaron de esta encuesta son mujeres cis.
+En resumen, más de dos tercios de las personas que participaron de esta encuesta son mujeres cis. Algo que reflejan los datos es que en las áreas de Recursos Humanos, la diversidad de identidades de género es prácticamente nula.
 
 ```{r genero_participantes}
 kiwi21_original %>% 
@@ -276,7 +282,7 @@ kiwi21_original %>%
          Porcentaje = percent(Porcentaje, accuracy = 0.1)) %>% 
   rename("Género" = genero, 
          "Cantidad" = n) %>% 
-  kbl(caption = "Participantes según\nIdentidad de Género") %>% 
+  kbl(caption = "Total de Participantes según\nIdentidad de Género") %>% 
   kable_styling(full_width = F, position = "center",
                 bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
   footnote(general = fuente, general_title = "")
