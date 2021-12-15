@@ -13,7 +13,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.retina = 3, out.width = "70%", fig.align = "center")
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.retina = 3, out.width = "80%", fig.align = "center")
 ```
 
 # Introducción
@@ -40,7 +40,7 @@ Pueden acceder a los datos crudos desde [este link](https://docs.google.com/spre
 # Carga de librerías 
 # Instalar pacman install.packages("pacman")
 
-pacman::p_load(tidyverse, funModeling, gt, googlesheets4,gt,
+pacman::p_load(tidyverse, funModeling, gt, googlesheets4,gt, CGPfunctions,
                extrafont, scales, ggalt, kableExtra, wordcloud, networkD3,
                data.table)
 
@@ -130,6 +130,14 @@ rtas_pais <- kiwi21_original %>%
   distinct(pais) %>% 
   count() %>% 
   pull()
+
+
+# Reorganizar puestos jerárquicamente
+kiwi21 <- kiwi21 %>% 
+  mutate(puesto = factor(puesto, 
+                         levels = c("Director", "Gerente", "Jefe", 
+                                    "Responsable", "HRBP", "Analista",
+                                    "Administrativo", "Pasante")))
 ```
 
 # Motivaciones
@@ -290,3 +298,207 @@ kiwi21_original %>%
 
 
 ```
+
+
+# Análisis de remuneraciones
+## Remuneraciones por país
+
+En esta sección nos dedicaremos a comparar los sueldos entre los países. En primer lugar, hay que resaltar que los resultados no son representativos de los mercados de los países, sino que lo son de los datos recolectados.
+
+Por otra parte, la baja cantidad de respuestas recolectadas de otros países fuera de la Argentina, nos hace imposible, hacer un análisis comparado representativo de los puestos. Sin embargo, hay algunos datos intresantes para analizar.
+
+Primero, analicemos los sueldos de los trabajadores en relación de dependencia, de cuyos países hayamos recibido al menos 5 respuestas.
+
+```{r sueldo_pais1}
+sueldos_dolar <- kiwi21 %>% 
+  select(puesto, sueldo_dolar, pais, tipo_contratacion) %>% 
+  filter(puesto != "Pasante", tipo_contratacion != "Pasante")
+
+# Eliminamos los sueldos que están dentro del rango entre los percentiles 5 y 95
+numericos <- profiling_num(sueldos_dolar)
+poda_p05 <- numericos[1,6]
+poda_p95 <- numericos[1,10]
+
+# Dado que los percentiles 5 y 95 están en U$422 y 3300 respectivamente, 
+# podamos todo lo que esté fuera de ese rango
+
+media_pais <- sueldos_dolar %>% 
+  filter(pais %in% c("Argentina", "Perú", "Bolivia", "Costa Rica", "Uruguay", 
+                     "Chile", "México", "Paraguay", "Ecuador"),
+         between(sueldo_dolar,poda_p05,poda_p95)) %>% 
+  group_by(pais) %>% 
+  summarise(sueldop = list(mean_se(sueldo_dolar))) %>% 
+  unnest(cols = c(sueldop)) 
+ 
+sueldo_dolar_pais <- kiwi21 %>% 
+  select(pais, sueldo_dolar) %>% 
+  filter(between(sueldo_dolar, poda_p05, poda_p95),
+         pais %in% c("Argentina", "Perú", "Bolivia", "Costa Rica", "Uruguay", 
+                     "Chile", "México", "Paraguay", "Ecuador"))
+
+# Gráfico
+ggplot(media_pais, aes(reorder(pais, -y), y =  y))+
+  geom_col(fill = azul, alpha = 0.85) +
+  geom_errorbar(aes(ymin = ymin,ymax = ymax), position = "dodge", color = "#333e47")+
+  geom_point(data = sueldo_dolar_pais, aes(x = pais, y = sueldo_dolar), 
+             alpha = 0.3, size = 2, color = "#75838F",
+             position = position_jitter(width = 0.15))+
+  geom_text(aes(label = comma(round(x=y, 0), big.mark = ".", 
+                              decimal.mark = ","),
+                vjust = 1.5, fontface = "bold"), 
+            size = 4, color = "white",
+            family = "Roboto")+
+  eje_y_n +
+  labs(title = "Salario promedio por país",
+       subtitle = "Sueldos de RRHH en U$S",
+       caption = paste0(fuente,"\nPaíses con más de 5 respuestas"),
+       x = "", y = "") + 
+  estiloh
+```
+
+A pesar de la baja cantidad de respuestas, se repite la tendencia del 2020 en donde **Uruguay** y **Chile** tienen en promedio los sueldos más altos de la región.
+
+## Análisis de sueldos por puestos en Latinoamérica
+
+```{r sueldo_puesto}
+kiwi21 %>% 
+  select(puesto, sueldo_dolar) %>% 
+  filter(puesto != "Pasante",
+         between(sueldo_dolar, poda_p05, poda_p95)) %>% 
+  group_by(puesto) %>% 
+  summarise(mediana_salarial = median(sueldo_dolar)) %>% 
+  ggplot(aes(x = mediana_salarial, y = fct_rev(puesto))) +
+  geom_col(fill = azul) +
+  estilov +
+  labs(title = "Mediana salarial por puesto", 
+       subtitle = "Sueldos de RRHH en U$S", 
+       x = "", y = "", 
+       caption = fuente) +
+  eje_x_n
+```
+
+La razón por la cual la mediana salarial de las personas en puesto de **Dirección** es menor a la de las personas en puestos de **Gerente** se explica por el tamaño de la muestra y las respuestas recibidas. En la tabla a continuación incorpora la cantidad de respuestas recibidas para cada uno de estas posiciones.
+
+```{r sueldo_puesto_tabla}
+gt(kiwi21 %>% 
+     select(puesto, sueldo_dolar) %>% 
+     filter(puesto != "Pasante") %>% 
+     group_by(puesto) %>% 
+     summarise(mediana_salarial = median(sueldo_dolar), 
+               cant = n())
+     ) %>% 
+  tab_header(title = "Mediana salarial por puestos", 
+             subtitle = "Sueldos en U$D") %>% 
+  tab_source_note(source_note = fuente) %>% 
+   fmt_currency(columns =  "mediana_salarial", decimals = 0,
+               sep_mark = ".", dec_mark = ",") %>% 
+  cols_label(puesto = "Posición",
+             mediana_salarial = "Mediana Sueldo",
+             cant = "Respuestas") 
+```
+
+## Sueldos según el origen del capital
+
+Si dividimos los gráficos según el *Origen del Capital*, podemos apreciar que en líneas generales, la mediana salarial en empresas multinaciones es mayor que en las empresas nacionales. Solamente en las posiciones de **HRBP** y de **Gerente** se aprecia una paridad salarial respecto del origen del capital de la organización.
+
+```{r origen_capital}
+kiwi21 %>% 
+  select(origen_capital, puesto, sueldo_dolar) %>% 
+  filter(puesto != "Pasante", 
+         between(sueldo_dolar, poda_p05, poda_p95)) %>% 
+  group_by(puesto, origen_capital) %>% 
+  summarise(mediana_salarial = median(sueldo_dolar)) %>% 
+  ggplot(aes(x = mediana_salarial, y = fct_rev(puesto), fill = origen_capital)) +
+  geom_col() +
+  geom_text(aes(label = round(x=mediana_salarial, 0), hjust = 1.2, fontface = "bold"),size = 3, color = "white") +
+  scale_fill_manual(values = c(verde, azul)) +
+  estilov +
+  eje_x_n +
+  facet_wrap(~origen_capital) +
+  labs(title = "Mediana salarial por puesto según origen del capital", 
+       subtitle = "Sueldos de RRHH en U$S", 
+       x = "", y = "", fill = "", 
+       caption = fuente) +
+  theme(legend.position = "top")
+```
+
+Veamos este gráfico de otra manera:
+
+```{r origen_capital_slope}
+
+slope_df <- kiwi21 %>% 
+  select(puesto, sueldo_dolar, origen_capital) %>% 
+  filter(between(sueldo_dolar, poda_p05, poda_p95)) %>% 
+  group_by(puesto, origen_capital) %>% 
+  summarise(mediana_salarial = round(median(sueldo_dolar)))
+
+newggslopegraph(dataframe = slope_df,
+                Times = origen_capital,
+                Measurement = mediana_salarial,
+                Grouping = puesto,
+                Title = "Diferencias entre sueldos de RRHH en empresas nacionales y multinacionales",
+                SubTitle = "Mediana Salarial. Sueldos en U$S",
+                Caption = fuente, WiderLabels = T
+                
+                )
+```
+
+## Análisis por rubro y origen del capital
+
+Para el análisis de los rubros de la empresa, vamos a filtrar los 5 rubros que tienen más respuestas. También eliminaremos del análisis el puesto de Director porque no se encuentra presente en todos los rubros.
+
+```{r rubros, fig.height=15}
+top_5_rubros <- kiwi21 %>% 
+  select(rubro) %>% 
+  group_by(rubro) %>% 
+  count(sort = TRUE) %>%
+  filter(rubro != "Otros", n > 30) %>% 
+  pull(var = rubro)
+
+
+kiwi21 %>% 
+  select(rubro, origen_capital, puesto, sueldo_dolar) %>% 
+  filter(puesto != "Pasante", puesto != "Director",
+         between(sueldo_dolar, poda_p05, poda_p95),
+         rubro %in% top_5_rubros) %>% 
+  group_by(rubro, puesto, origen_capital) %>% 
+  summarise(mediana_salarial = median(sueldo_dolar)) %>% 
+  ggplot(aes(x = mediana_salarial, y = fct_rev(puesto), 
+             fill = origen_capital)) +
+  geom_col() +
+  geom_text(aes(label = round(x=mediana_salarial, 0), 
+                hjust = 1.2, 
+                fontface = "bold"),
+            size = 3, 
+            color = "white") +
+  scale_fill_manual(values = c(verde, azul)) +
+  estilo +
+  eje_x_n +
+  facet_grid(rubro~origen_capital) +
+  labs(title = "Mediana salarial por puesto según origen del capital", 
+       subtitle = "Sueldos de RRHH en U$S", 
+       x = "", y = "", fill = "", 
+       caption = fuente) +
+  theme(legend.position = "top")
+```
+
+Para ver las medianas salariales por rubros junto con el desvío estándar, pueden ver la siguiente tabla:
+
+```{r rubros2}
+  kiwi21 %>% 
+    select(rubro, sueldo_dolar) %>% 
+    filter(between(sueldo_dolar, poda_p05, poda_p95)) %>% 
+    group_by(rubro) %>% 
+    summarise(mediana_salarial = round(median(sueldo_dolar)),
+              desvio_salarial = round(sd(sueldo_dolar)),
+              Respuestas = n()) %>% 
+    arrange(-mediana_salarial) %>% 
+  kbl(caption = "Mediana salarial por rubro. En U$S", 
+      col.names = c("Rubro", "Mediana Salarial","Desvío", "Respuestas")) %>% 
+  kable_styling(full_width = F, position = "center",
+              bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  scroll_box(height = "500px")
+  
+
+```
+
