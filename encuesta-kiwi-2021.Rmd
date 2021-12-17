@@ -91,7 +91,7 @@ estiloh <- theme(panel.grid = element_blank(),
                  panel.grid.major.y = element_line(color = "#AEB6BF"),
                  text = element_text(family = "Roboto"))
 
-genero <- c("#8624F5", "#1FC3AA", "#FFD129", "#75838F") #Violeta - Verde - Amarillo - Gris
+genero <- c("#1FC3AA", "#8624F5", "#FFD129", "#75838F") # Verde - Violeta - Amarillo - Gris
 genero3 <- c("#8624F5","#FFD129", "#1FC3AA")
 
 colores <-  c("#8624F5", "#1FC3AA")
@@ -500,5 +500,149 @@ Para ver las medianas salariales por rubros junto con el desvío estándar, pued
   scroll_box(height = "500px")
   
 
+```
+
+# Sueldos por países
+
+Si bien la mayor cantidad de respuestas la recibimos de personas trabajando en Argentina, en esta edición decidimos incluir a todos los países de los que obtuvimos al menos 10 respuestas (Argentina, Perú, Bolivia, Costa Rica, Uruguay y Chile). Si bien la cantidad de respuestas no  nos permiten realizar análisis muy profundos queremos agradecer a las personas que respondieron realizando aunque más no sea un breve análisis.
+
+Como primeros pasos, vamos a filtrar los datos correspondientes a cada país, y luego filtramos los sueldos que estén entre los percentiles 5 y 95, para eliminar valores espurios o extremos que ensucien el análisis.
+
+También eliminamos el puesto de Director del análisis y las respuestas con Género diverso por la baja cantidad de respuestas.
+
+Otra conversión que hicimos fue pasar los sueldos de las personas que trabajan part-time a una equivalencia full-time multiplicando por 1.5 el sueldo completado en la encuesta.
+
+En esta instancia, también simplificamos los nombres de algunos rubros para mejorar las visualizaciones de los resultados.
+
+## Perú
+
+```{r peru1}
+kiwi21 <- kiwi21 %>% 
+  filter(between(sueldo_dolar, poda_p05, poda_p95),
+         puesto != "Director", puesto != "Pasante",
+         genero %in% c("Mujer cis", "Hombre cis"),
+         anios_experiencia < 50) %>% 
+  mutate(rubro = fct_recode(rubro, "Servicios financieros" = "Servicios financieros; seguros",
+                             "Transporte" = "Transporte (incluyendo aviación civil; ferrocarriles por carretera)",
+                            "Ind. Automotriz y Autopartistas" = "Terminales automotrices, fábricas autopartistas, y afines",
+                            "Tecnología" = "Tecnologías de Información, Sistemas, y afines",
+                            "Ind. Petrolera" = "Petróleo y producción de gas; refinación de petróleo"),
+         multiplicador = if_else(tipo_contratacion == "Part time", 1.5, 1),
+         sueldo_ft = sueldo_bruto * multiplicador)
+
+# Análisis Perú
+rh_pe <- kiwi21 %>% 
+  filter(pais == "Perú")
+
+
+
+```
+
+### Análisis salarial por género y puestos
+
+En el siguiente gráfico podemos ver la distribución de los sueldos por género. En este tipo de gráficos, llamados boxplots podemos ver:
+
+* **Primer cuartil**: La parte inferior de la caja.
+* **Mediana**: La línea gruesa dentro de cada rectángulo.
+* **Tercer cuartil**: La parte superior de la caja
+* **Outliers**: son los valores extremos identificados con puntos.
+
+A este gráfico lo combinamos con un scatterplot para poder ver la cantidad de registros.
+
+```{r peru2}
+ggplot(rh_pe, aes(x = genero, y = sueldo_bruto, fill = genero)) +
+  geom_boxplot(alpha = 0.6) +
+  geom_point(position = position_jitter(width = 0.08), size = 2) +
+  scale_fill_manual(values = genero) +
+  estiloh + 
+  eje_y_n +
+  labs(title = "Distribución de sueldos por género",
+       subtitle = "Datos de Perú - En S/",
+       x = "", y = "Soles S/",
+       fill = "Género",
+       caption = fuente)
+
+```
+
+En el siguiente gráfico podemos ver los sueldos promedios para cada posición y género. En algunas posiciones y género sólo tenemos una sola respuesta, por eso las barras de error no aparecen.
+
+```{r peru3}
+
+rh_pe %>% 
+  group_by(puesto, genero) %>% 
+  summarise(sueldop = list(mean_se(sueldo_bruto))) %>% 
+  unnest(cols = c(sueldop)) %>% 
+  ggplot(aes(x = fct_rev(puesto), y = y, fill = genero)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(aes(ymin = ymin,ymax = ymax), position = "dodge", color = "#333e47") +
+  geom_text(aes(label = comma(round(x=y, 0), big.mark = ".",
+                             decimal.mark = ","),
+               vjust = 1.5, fontface = "bold"),
+            position = position_dodge(0.9),
+           size = 4, color = "white",
+           family = "Roboto") +
+  eje_y_n +
+  scale_fill_manual(values = genero) +
+  labs(title = "Salario promedio por puesto y género",
+       subtitle = "Datos de Perú en S/",
+       caption = paste0(fuente),
+       fill = "Género",
+       x = "", y = "Soles S/") + 
+  estiloh
+```
+
+### Análisis por funciones
+
+```{r peru_rol}
+rh_pe %>% 
+  group_by(funcion) %>% 
+  summarise(sueldo_promedio = mean(sueldo_bruto)) %>% 
+  ggplot(aes(x = sueldo_promedio, 
+             y = reorder(funcion, sueldo_promedio))) +
+  geom_col(fill = azul) +
+  geom_text(aes(label = comma(round(sueldo_promedio, 0), 
+                              big.mark = ".",
+                             decimal.mark = ","),
+            hjust = 1.5, fontface = "bold"),
+            position = position_dodge(0.9),
+            size = 3, color = "white",
+            family = "Roboto") +
+  eje_x_n +
+  estilov +
+  labs(title = "Sueldo promedio por función",
+       subtitle = "Datos de Perú en S/",
+       x = "Soles S/",
+       y = "",
+       caption = fuente) +
+  theme(plot.title.position = "plot")
+```
+
+
+### Análisis por rubros
+
+Veamos cuáles son los rubros mejor pagos en Perú
+
+```{r peru_rubro}
+rh_pe %>% 
+  group_by(rubro) %>% 
+  summarise(sueldo_promedio = mean(sueldo_bruto)) %>% 
+  ggplot(aes(x = sueldo_promedio, 
+             y = reorder(rubro, sueldo_promedio))) +
+  geom_col(fill = azul) +
+  geom_text(aes(label = comma(round(sueldo_promedio, 0), 
+                              big.mark = ".",
+                             decimal.mark = ","),
+            hjust = 1.5, fontface = "bold"),
+            position = position_dodge(0.9),
+            size = 3, color = "white",
+            family = "Roboto") +
+  eje_x_n +
+  estilov +
+  labs(title = "Sueldo promedio por rubro",
+       subtitle = "Datos de Perú en S/",
+       x = "Soles S/",
+       y = "",
+       caption = fuente) +
+  theme(plot.title.position = "plot")
 ```
 
