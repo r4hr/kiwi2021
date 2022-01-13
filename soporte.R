@@ -523,4 +523,3 @@ rh21 <- rh21 %>%
 write_delim(rh21, file = "data/rh_2021.csv",
             delim = ";")   
 
-
