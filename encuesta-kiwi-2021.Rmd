@@ -42,7 +42,8 @@ Pueden acceder a los datos crudos desde [este link](https://docs.google.com/spre
 
 pacman::p_load(tidyverse, funModeling, gt, googlesheets4,gt, CGPfunctions,
                extrafont, scales, ggalt, kableExtra, wordcloud, networkD3,
-               data.table)
+               data.table, ggeconodist, ggpmisc)
+
 
 
 # Carga de Datos ----
@@ -97,13 +98,13 @@ genero3 <- c("#8624F5","#FFD129", "#1FC3AA")
 colores <-  c("#8624F5", "#1FC3AA")
 
 azul <- "#344D7E"
-verde <-  "#4A9FC7"
+verde <-  "#1FC3AA"
 rosa1 <- "#B95192"
 rosa2 <- "#EE5777"
 naranja <- "#FF764C"
 amarillo <- "#FFA600"
 gris <- "#75838F"
-lila <- "#755395"
+lila <- "#8624F5"
 rojo <- "#943126"
 
 col4 <- c(azul, lila, rosa1, rosa2)
@@ -1345,6 +1346,621 @@ rh_ar %>%
   theme(plot.title.position = "plot")
 ```
 
+
+Ahora comparemos los sueldos por rubros y géneros. Aquí podremos apreciar las diferencias entre los sueldos promedios de los hombres y mujeres en cada rubro.
+
+```{r ar_rubro2}
+rubro_ar <- rh_ar %>% 
+  select(rubro, sueldo_ft) %>% 
+  group_by(rubro) %>% 
+  summarise(media_sueldo = mean(sueldo_ft),
+            respuestas = n()) %>% 
+  arrange(-respuestas)
+
+top_rubros <- rubro_ar %>% 
+  filter(rubro != "Otros", respuestas > 10) %>% 
+  pull(rubro)
+
+# Divide el largo de 'rubros' en varias líneas
+rh_ar$rubro <- str_wrap(rh_ar$rubro, width = 30)
+
+
+rh_ar %>% 
+  filter(rubro %in% top_rubros) %>% 
+  select(rubro, sueldo_ft, genero) %>% 
+  group_by(rubro, genero) %>% 
+  summarise(media_sueldo = mean(sueldo_ft),
+            respuestas = n()) %>% 
+  arrange(-respuestas) %>% 
+  ggplot(aes(x = media_sueldo, y = reorder(rubro, media_sueldo), fill = genero)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = comma(round(media_sueldo, 0),
+                              big.mark = ".",
+                              decimal.mark = ","),
+                hjust = 1.4, vjust = 0.3),
+            size = 3, 
+            color = "white", 
+            position = position_dodge(width = .9)) +
+  scale_fill_manual(values = genero) +
+  labs(title = "Promedio salarial por rubro y género",
+       subtitle = "Datos de Argentina - en AR$",
+       x = "", y = "", fill = "Género",
+       caption = fuente) +
+  eje_x_n +
+  estilov +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        plot.title.position = "plot") +
+  guides(fill = guide_legend(reverse=TRUE))  # Invierte el orden de los colores en la leyenda
+
+
+rm(rubro_ar, top_rubros)
+```
+
+Por último, analicemos los sueldos de los 6 rubros con mayor cantidad de respuestas, y visualicemos las distribuciones de los sueldos por puesto y género. En este gráfico podemos ver los cuartiles delimitando las zonas sombreadas, y la mediana con el punto gris. Los puntos violetas y verdes representan a las mujeres y los hombres respectivamente en cada uno de los puestos.
+
+```{r ar_rubros3}
+#| out.width = "90%",
+#| fig.height = 7
+
+rh_ar %>% 
+  filter(genero != "Género Diverso",
+         puesto != "Director",
+         rubro %in% c("Tecnologías de información", "Servicios de consultoría", 
+                      "Alimentación, bebidas", "Comercio",
+                      "Servicios de salud", "Servicios profesionales"))  %>% 
+  ggplot(aes(x = fct_rev(puesto), y = sueldo_bruto)) +
+  geom_econodist(width = 0.5) +
+  geom_point(aes(y = sueldo_bruto, color = genero), alpha = 0.3,
+             position = position_jitter(width = 0.25)) +
+  scale_color_manual(values = c(verde, lila)) +
+  eje_y_n +
+  coord_flip() +
+  facet_wrap(~rubro, ncol = 2) +
+  estilov +
+  labs(title = "Distribución salarial por puesto y rubro",
+       subtitle = "Datos de Argentina - en AR$",
+       x = "", y = "", color = "Género",
+       caption = fuente) +
+  theme(plot.title.position = "plot")
+```
+
+### Relaciones entre experiencia y sueldo bruto
+
+En esta sección del análisis buscamos identificar cuáles son los factores que influyen en los ingresos (independientemente de la posición), así que empezamos a explorar los datos.
+
+La primera pregunta que nos hicimos fue si los años de trayectoria influyen en el sueldo. Nuestra hipótesis es que a mayor cantidad de años de experiencia, mayor iba a ser el ingreso.
+
+Lo que vamos a ver en el siguiente gráfico de dispersión, es en el eje horizontal, los años de experiencia, y en el eje vertical, el sueldo bruto expresado en pesos argentinos. Luego, vamos a graficar una recta, que nos va a indicar la *fuerza* de esa relación.
+
+
+```{r reg_lineal_1}
+lm_rh <- lm(sueldo_ft ~ anios_experiencia, data = rh_ar)
+
+lm_hr_results <- summary(lm_rh)
+
+lm_rh_r2 <- round(lm_hr_results[["r.squared"]],3)
+
+ggplot(rh_ar, aes(x=anios_experiencia, y = sueldo_ft)) +
+  geom_point(color = "#1FC3AA", alpha = 0.4, size = 2) + 
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  theme(text = element_text(family = "Roboto")) +
+  labs(title = "Relación entre sueldo y años de experiencia",
+       x = "Años de Experiencia",
+       y = "Sueldo bruto (AR$)", 
+       caption = fuente) +
+  eje_y_n +
+  geom_text(aes(x=-Inf, y=Inf, hjust=0, vjust=1, label= paste0("R2 = ", lm_rh_r2))) 
+
+```
+
+En el gráfico podemos apreciar una recta que va creciendo efectivamente: a medida que nos movemos más hacia la derecha, la recta va subiendo. Pero el $R^2$ = `r lm_rh_r2` nos indica cuánto explica los años de experiencia sobre el sueldo bruto, o dicho de otra manera, en qué medida influye la variable x (años de experiencia), sobre la variable y (sueldo bruto). Una definición más precisa de este valor conocido como **Coeficiente de Determinación** es la proporción de la varianza total de la variable explicada por la regresión.
+
+Este valor puede estar entre 0 y 1, mientras más cerca de 0 está menor es la relación, y mientras más cerca de 1 esté el resultado, indica que la regresión explica la variabilidad de la variable de respuesta. Es por eso que este $R^2$ = `r lm_rh_r2` nos indica que los años de experiencia explican un 31.8% de la variabilidad de los sueldos en RRHH.
+
+#### Relación entre años de experiencia y sueldo bruto por puesto.
+
+Dado que en el gráfico anterior tenemos mezclados los sueldos de administrativos, analistas, jefes y gerentes, decidimos analizar la relación entre los años de experiencia y el sueldo bruto por cada uno de los puestos por separado.
+
+```{r reg_lineal_2, out.width="90%"}
+
+mi.formula <- y ~ x
+
+ggplot(rh_ar, aes(x=anios_experiencia, y = sueldo_ft)) +
+  geom_point(color = "#1FC3AA", alpha = 0.4, size = 2) + 
+  geom_smooth(method = "lm", formula = mi.formula, se = FALSE) +
+  theme_minimal() +
+  theme(text = element_text(family = "Roboto")) +
+  labs(title = "Relación entre sueldo y años de experiencia",
+       x = "Años de Experiencia",
+       y = "", 
+       caption = fuente) +
+  eje_y_n +
+  stat_poly_eq(formula = mi.formula, 
+               aes(label = paste(..rr.label.., sep = "~~~")), 
+               parse = TRUE) +
+  facet_wrap(~puesto)
+
+```
+
+Como podemos apreciar en los $R^2$ de cada gráfico en el único puesto donde encontramos una fuerte relación entre los años de experiencia y el sueldo bruto es en los **HRBP**. En el resto de los puestos los años de trayectoria influyen muy poco en los sueldos de cada uno de los puestos.
+
+Ahora bien, la pregunta es, *¿cuál es la variable que más influye en el sueldo en Recursos Humanos?.* Tristemente, la respuesta no sorprende.
+
+```{r}
+ggplot(rh_ar, aes(x = genero, y = sueldo_ft, fill = genero)) +
+  geom_boxplot() +
+  eje_y_n +
+  scale_fill_manual(values = c(verde, lila)) +
+  estiloh +
+  labs(title = "Distribución salarial por género",
+       x = "", y = "",
+       fill = "Género", 
+       caption = fuente)
+```
+
+# Educación
+
+En esta sección queremos indagar si hay relación entre la formación y la remuneración, y si impacta también el tipo de universidad, pública o privada, en la remuneración y posición. Primero veamos entre los distintos países como se distribuye la muestra entre profesionales provenientes de universidades públicas y privadas.
+
+Dado que tenemos relativamente pocas respuestas de otros países que no sean Argentina, no podemos sacar ninguna conclusión seria, sólo mencionar que en Argentina, hay una virtual paridad entre los estudiantes y graduados de universidades públicas y privadas. Posteriormente analizaremos la situación por regiones dentro del país.
+
+Las proporciones de respuestas según al tipo de universidad que asistieron los participantes de la encuesta es la siguiente:
+
+```{r tipo_universidad, fig.show="hold", out.width="50%", fig.align = "default"}
+kiwi21 %>% 
+  select(pais, tipo_universidad) %>% 
+  ggplot(aes(y = fct_rev(pais), 
+             fill = tipo_universidad)) +
+           geom_bar(position = "fill") + 
+  scale_fill_manual(values = c(gris, verde, azul)) +
+  labs(title = "Distribución de respuestas por tipo de universidad por país",
+       caption = fuente, 
+       x = "", y = "") +
+  estilo +
+  theme(legend.position = "none")
+
+
+educ <- kiwi21 %>% 
+  select(tipo_universidad) %>%  
+  group_by(tipo_universidad) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+# Compute the cumulative percentages (top of each rectangle)
+educ$ymax <- cumsum(educ$freq)
+
+# Compute the bottom of each rectangle
+educ$ymin <- c(0, head(educ$ymax, n=-1))
+
+# Compute label position
+educ$labelPosition <- (educ$ymax + educ$ymin) / 2
+
+# Compute a good label
+educ$label <- paste0(educ$tipo_universidad, "\n Cant: ", educ$n)
+
+# Make the plot
+ggplot(educ, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=tipo_universidad)) +
+  geom_rect() +
+  coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+  xlim(c(2, 4)) +# Try to remove that to see how to make a pie chart
+  scale_fill_manual(values = c(gris, verde, azul)) +
+  theme_void() +
+  theme(legend.position = "right",
+        panel.background = element_blank(),
+        text = element_text(family = "Roboto")) +
+  labs(title = "Tipo de Universidad",
+       fill = "Tipo de Universidad", 
+       caption = fuente) +
+  theme(legend.position = "left")
+```
+
+Las principales carreras de las personas que respondieron son:
+
+```{r carreras}
+carreras <- kiwi21 %>% 
+  select(nivel_formacion, carrera_grado, tipo_universidad, trabajo, 
+         sueldo_bruto, puesto, funcion, pais, genero) %>% 
+  mutate(carrera_grado = factor(carrera_grado))
+
+
+carreras <- carreras %>% 
+  mutate(carrera_grado = fct_collapse(carrera_grado, 
+                                      "Comunicación Social" = c("Ciencias de la Comunicación", "Comunicación", "Comunicación social",
+                                                                "Comunicación Social",
+                                                                "Soy Licenciada en Ciencias Comunicación y Diplomada en RRHH")), 
+         carrera_grado = fct_collapse(carrera_grado, "Ingenierías" = c("Ingeniera Comercial", "INGENIERA COMERCIAL",
+                                                                       "Ing. Gestión Empresarial", "Ingeniería",
+                                                                       "Ingenieria comercial", "Ingeniería Comercial",
+                                                                       "Ingeniería de Sistemas", "Ingeniería Industrial")),
+         carrera_grado = fct_collapse(carrera_grado, "Relaciones Públicas" = c("Lic. en Relacione Publicas",
+                                                                               "Lic. en Relaciones Públicas",
+                                                                               "Relaciones Públicas e Institucionales")),
+         carrera_grado = fct_collapse(carrera_grado, 
+                                      "Psicología" = c("Psicología", "Psicología Social")),
+         carrera_grado = fct_lump(carrera_grado, 
+                                  prop = 0.02, 
+                                  other_level = "Otras"),
+         carrera_grado = factor(carrera_grado,
+                               levels = c("RRHH / RRLL / RRTT", "Psicología", "Administración de Empresas", 
+                                         "Contador Público", "Ingenierías","Comunicación Social", "Otras")))
+
+
+
+ggplot(carreras, aes(y = fct_rev(carrera_grado))) + 
+  geom_bar(position = "dodge", fill = azul) +
+  theme(plot.title.position = "plot") + 
+  labs(x="",y="") +
+  estilov +
+  labs(title = "Principales carreras estudiadas",
+       subtitle = "Trabajadores en relación de dependencia",
+       caption = fuente)
+
+```
+
+Dada la cantidad de respuestas por país, el análisis que haremos desde aquí en adelante sólo será para **Argentina**.
+
+## Análisis de educación y puestos para Argentina
+
+Luego, podemos analizar en qué tipo de universidad estudiaron las personas que respondieron la encuesta, según el puesto actual que ocupan.
+
+```{r puesto-universidad}
+recorte_educacion <- rh_ar %>%
+  filter(pais == "Argentina") %>% 
+  select(nivel_formacion, carrera_grado,
+         tipo_universidad, trabajo, sueldo_bruto, puesto, funcion, pais, genero)
+
+ggplot(recorte_educacion, (aes(x = puesto, fill = tipo_universidad))) + #Tipo de universidad y cargo
+  geom_bar(position = "dodge") +
+  theme(plot.title.position = "plot") + 
+  labs(x="",y="") +
+    estilov +
+  scale_fill_manual(values = c(gris, verde, azul)) +
+  coord_flip() +
+  labs(title = "Cantidad de respuestas según puesto y universidad",
+       subtitle = "Sólo respuestas de Argentina",
+       x = "", fill = "Tipo de Universidad",
+       caption = fuente) +
+    guides(fill = guide_legend(reverse=TRUE))  # Invierte el orden de los colores en la leyenda
+
+```
+
+Reiteremos el análisis pero únicamente para las carreras relacionadas con Recursos Humanos y Relaciones del Trabajo.
+
+```{r rh-psico}
+recorte_educacion %>%
+  filter(carrera_grado == "RRHH / RRLL / RRTT") %>% 
+  ggplot(aes(x = puesto, fill = tipo_universidad)) + #Tipo de universidad y cargo
+  geom_bar(position = "dodge") +
+  theme(plot.title.position = "plot") + 
+  labs(x="",y="") +
+    estilov +
+  scale_fill_manual(values = c(gris, verde, azul)) +
+  coord_flip() +
+  labs(title = "Cantidad de respuestas según puesto y universidad",
+       subtitle = "Sólo respuestas de Argentina - Carreras de RH",
+       x = "", fill = "Tipo de Universidad",
+       caption = fuente) +
+    guides(fill = guide_legend(reverse=TRUE))  # Invierte el orden de los colores en la leyenda
+
+  
+
+```
+
+Podemos apreciar que a partir de los puestos de jefatura, hay mayor presencia de graduados provenientes de universidades privadas.
+
+En Argentina, podemos ver la siguiente distribución por género y nivel educativo.
+
+```{r nivel-ed-genero}
+
+ne_salario <- recorte_educacion 
+
+# Elimina recorte_educacion
+rm(recorte_educacion)
+
+# Agrupa categorías de educación
+ne_salario <- ne_salario %>% 
+    mutate(nivel_formacion = fct_collapse(nivel_formacion,
+                                        "Secundario completo" = c("Secundario completo", "Terciario en curso",
+                                                                  "Terciario abandonado", "Universitario abandonado"),
+                                        "Universitario completo" = c("Universitario completo", "Maestría abandonada", 
+                                                                     "Diplomado de posgrado abandonado")),
+         nivel_formacion = fct_recode(nivel_formacion, "Diplomado completo" = "Diplomado de posgrado completo",
+                                      "Diplomado en curso" = "Diplomado de posgrado en curso")) 
+
+ne_salario %>% 
+  select(pais, nivel_formacion, genero, puesto) %>%
+  filter(genero %in% c("Mujer cis", "Hombre cis")) %>%
+  mutate(nivel_formacion = factor(nivel_formacion,
+                                  levels = c("Secundario completo", "Terciario completo",
+                                             "Universitario en curso", "Universitario completo",
+                                             "Diplomado en curso","Diplomado completo",
+                                             "Maestría en curso","Maestría completa"))) %>% 
+  group_by(nivel_formacion) %>% 
+  ggplot(aes (y= nivel_formacion, fill = genero)) + 
+  geom_bar(position = "fill") +
+  labs(x="",y="") +
+  scale_fill_manual(values = c(verde, lila)) +
+  estilo +
+  theme(legend.position = "top",
+        plot.title.position = "plot") +
+  labs(title = "Máximo nivel educativo alcanzado por género",
+       subtitle = "Distribución por frecuencias absolutas",
+       caption = fuente, 
+       fill = "Género")
+
+```
+
+En términos absolutos, las mujeres graduadas representan cerca del 75% de la muestra. Analicemos estos datos en términos relativos. Prácticamente el patrón de nivel educativo entre hombres y mujeres es idéntico.
+
+De acuerdo a la muestra recolectada, las mujeres se forman en mayor proporción que los hombres cis.
+
+```{r nivel-ed-genero-rel}
+ne_fem <- ne_salario %>% 
+  filter(genero == "Mujer cis") %>% 
+  group_by(genero, nivel_formacion) %>% 
+  mutate(nivel_formacion = factor(nivel_formacion,
+                                  levels = c("Secundario completo", "Terciario completo",
+                                             "Universitario en curso", "Universitario completo",
+                                             "Diplomado en curso","Diplomado completo",
+                                             "Maestría en curso","Maestría completa"))) %>% 
+  group_by(nivel_formacion) %>% 
+  summarise(n = n()) %>% 
+  mutate(frecuencia = round(n/sum(n),2),
+         genero = "Mujer cis") 
+
+ne_mas <- ne_salario %>% 
+  filter(genero == "Hombre cis") %>% 
+  group_by(genero, nivel_formacion) %>% 
+  mutate(nivel_formacion = factor(nivel_formacion,
+                                  levels = c("Secundario completo", "Terciario completo",
+                                             "Universitario en curso", "Universitario completo",
+                                             "Diplomado en curso","Diplomado completo",
+                                             "Maestría en curso","Maestría completa"))) %>% 
+  group_by(nivel_formacion) %>% 
+  summarise(n = n()) %>% 
+  mutate(frecuencia = round(n/sum(n),2),
+         genero = "Hombre cis") 
+
+ne_total <- rbind(ne_fem, ne_mas)
+
+ggplot(ne_total, aes(x = nivel_formacion, y = frecuencia, fill = genero)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 90), 
+        legend.position = "none") + 
+  labs(x="",y="") +
+  scale_fill_manual(values = colores) +
+  facet_wrap(~genero, ncol = 2) +
+  estiloh +
+  labs(title = "Proporción de nivel educativo máximo por género",
+       x = "", y = "Proporción", 
+       caption = fuente)
+
+```
+
+Ahora veamos como se distribuyen los puestos según el género y el nivel educativo.
+
+```{r puestos-nivel-ed, fig.height=8}
+ne_salario %>% 
+  select(pais, nivel_formacion, genero, puesto) %>%
+  filter(genero %in% c("Mujer cis", "Hombre cis"),
+         puesto != "Pasante", puesto != "Director") %>%
+  mutate(nivel_formacion = factor(nivel_formacion,
+                                  levels = c("Secundario completo", "Terciario completo",
+                                             "Universitario en curso", "Universitario completo",
+                                             "Diplomado en curso","Diplomado completo", 
+                                             "Maestría en curso","Maestría completa")),
+         puesto = factor(puesto, 
+                         levels = c("Director", "Gerente", "Jefe", "Responsable", "HRBP",
+                                    "Analista", "Administrativo"))) %>% 
+  group_by(nivel_formacion) %>% 
+  ggplot(aes (y= nivel_formacion, fill = genero)) + 
+  geom_bar(position = "fill") +
+  labs(x="",y="") +
+  scale_fill_manual(values = c(verde, lila)) +
+  estilo +
+  theme(legend.position = "top",
+        plot.title.position = "plot") +
+  labs(title = "Nivel educativo por puesto y género",
+       subtitle = "Distribución por frecuencias absolutas",
+       caption = fuente, 
+       fill = "Género") +
+  facet_wrap(~puesto, ncol = 3)
+
+```
+
+Algunas datos llamativos del gráfico anterior:
+
+- En las posiciones de **Gerente** y de **Jefe** hay paridad entre los géneros respecto de la formación en posgrados completos.
+- En posiciones de menor jerarquía se observan mujeres cis con posgrados completos o en curso en mayor proporción que hombres cis.
+- En el caso del puesto de **Analista** encontramos mujeres con posgrados completos, incluso con maestrías y diplomados completos. Hay pocas observaciones de varones cis con Diplomado completo en esta posición. Lo cual nos da la pauta que contar con un título de posgrado en el caso de los hombres ayuda a posicionarse en posiciones de mayor jerarquía en mayor proporción que las mujeres.
+
+Analicemos las proporciones de hombres y de mujeres en puesto de liderazgo.
+
+```{r liderazgo-genero, results='hide'}
+
+div <- rh_ar %>%
+  filter(pais == "Argentina") %>% 
+select(genero) %>% 
+  mutate(genero = factor(genero, 
+                         levels = c("Mujer cis", "Hombre cis"))) %>% 
+  group_by(genero) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+lideres <- rh_ar %>% 
+  filter(pais == "Argentina") %>% 
+ select(genero, puesto) 
+
+# Propoción de líderes hombres y mujeres
+lideres_genero <- lideres %>% 
+  filter(genero %in% c("Mujer cis", "Hombre cis")) %>% 
+  group_by(genero) %>%
+  mutate(gente_a_cargo = if_else(puesto %in% c("Responsable", "Jefe", "Gerente", 
+                                               "Supervisor", "Director"),1,0)) %>%
+  summarise(lider = sum(gente_a_cargo)) %>% 
+  left_join(div) %>% 
+  select(genero, lider, n) %>% 
+  mutate(proporcion = percent(lider/n))
+
+# Test de hipótesis para validar diferencias de resultados
+# Hay que verificar si la proporción de líderes hombres es mayor que la proporción de líderes mujeres
+# Creo un dataframe para analizar proporciones de hombres y de mujeres en puestos de liderazgo y de no-liderazgo
+test_lider <- lideres_genero %>% 
+  mutate(no_lider = n - lider) %>%        # Columna de no líderes
+  select(genero, lider, no_lider) %>%     # selecciono columnas de interés
+  pivot_longer(cols = c(lider, no_lider), # Hago un dataset largo para analizar después
+               names_to = "es_lider", values_to = "conteo")
+
+# Del total de respuestas me interesa sólo ver cuáles son los hombres con puesto de liderazgo
+test_lider$cat <- c(0,0,1,0)
+
+# Extraigo el mu para decidir si la diferencia es significativa y pasarlo a la fórmula del test.
+prop_mujer_lid <- pull(lideres_genero[1,2]/lideres_genero[1,3])
+
+# Realizo el test de hipótesis.
+# H0 = Las proporciones de líderes hombres y mujeres son iguales
+# H1 = La proporción de hombres líderes es mayor que la proporción de mujeres líderes.
+resultados_test <- broom::tidy(t.test(test_lider$cat, mu = prop_mujer_lid, alternative = "greater"))
+
+valor_test <- if(resultados_test[1,3] > 0.05) {
+  print("la diferencia es estadísticamente significativa, y la proporción de hombres en puestos de liderazgo es mayor que el de las mujeres")
+  } else {
+    print("la diferencia no es estadísticamente significativa, y la proporción de hombres no es estadísticamente mayor que el de las mujeres en puestos de liderazgo")
+  }
+```
+
+```{r grafico-prop-lid-genero}
+# Gráfico
+lideres_genero %>% 
+  mutate(porc_lider = lider/n, 
+         porc_no_lider = 1 - porc_lider) %>% 
+  pivot_longer(cols = c(porc_lider, porc_no_lider),
+               names_to = "es_lider", 
+               values_to = "valores") %>% 
+  mutate(es_lider = factor(es_lider, 
+                           levels = c("porc_no_lider", "porc_lider"), 
+                           labels = c("No Líder", "Líder"))) %>% 
+  ggplot(aes(x= genero, y = valores, fill = es_lider))+
+  geom_col(position = "fill")+
+  estilo +
+  scale_fill_manual(values = c("#75838F", "#344D7E")) +
+  labs(title = "Proporción de Líderes según género",
+       x = "", y = "", fill = "", 
+       caption = fuente)
+
+```
+
+De acuerdo a las respuestas recolectadas **2 de cada 3** participantes son mujeres.
+
+Para los puestos de liderazgo consideramos las personas en los puestos de *Director, Gerente, Jefe, y Responsable.*
+
+Del total de **mujeres**, `r lideres_genero[1,3]` respuestas, `r lideres_genero[1,2]` ocupan un puesto de liderazgo (`r lideres_genero[1, 4]`).
+
+Del total de **hombres**, `r lideres_genero[2, 3]` respuestas, `r lideres_genero[2,2]` ocupan un puesto de liderazgo (`r lideres_genero[2, 4]`).
+
+Con un *p-value* igual a `r round(resultados_test[1,3],3)` podemos afirmar que **`r valor_test`**.
+
+
+A pesar de que en Recursos Humanos en Argentina, las mujeres cis representan la mayor cantidad de empleados bajo relación de dependencia, y además se forman en mayor proporción que los varones en posgrados, proporcionalmente en comparación con los hombres cis, acceden a menos posiciones de liderazgo.
+
+
+
+## Análisis de sueldos y educación en Argentina
+
+En esta sección analizaremos los sueldos en comparación con los distintos niveles educativos.
+
+A diferencia de otras secciones, en este caso compararemos la *media salarial* para poder observar los desvíos estándar en los análisis. En primer lugar analicemos cuál es el sueldo promedio de acuerdo a los distintos niveles educativos.
+
+Primero veamos cuál es el sueldo promedio en pesos argentinos, según el nivel educativo.
+
+```{r sueldo-educ}
+estudios <- rh_ar %>% 
+  filter(pais == "Argentina") %>% 
+  select(genero, nivel_formacion, sueldo_bruto)
+    
+  
+est_ar  <- profiling_num(estudios)
+es_p05 <- est_ar[1,6]
+es_p95 <- est_ar[1,10]
+
+rm(est_ar)
+
+rh_ar %>% 
+  filter(pais == "Argentina", 
+         between(sueldo_bruto, es_p05, es_p95)) %>% 
+      mutate(nivel_formacion = fct_collapse(nivel_formacion,
+                                        "Secundario completo" = c("Secundario completo", "Terciario en curso",
+                                                                  "Terciario abandonado", "Universitario abandonado"),
+                                        "Universitario completo" = c("Universitario completo", "Maestría abandonada", 
+                                                                     "Diplomado de posgrado abandonado")),
+         nivel_formacion = fct_recode(nivel_formacion, "Diplomado completo" = "Diplomado de posgrado completo",
+                                      "Diplomado en curso" = "Diplomado de posgrado en curso")) %>% 
+    mutate(nivel_formacion = factor(nivel_formacion,
+                                  levels = c("Secundario completo", "Terciario completo",
+                                             "Universitario en curso", "Universitario completo",
+                                             "Diplomado en curso", "Diplomado completo",
+                                             "Maestría en curso","Maestría completa"))) %>% 
+  group_by(nivel_formacion) %>% 
+  summarise(sueldo_promedio = mean(sueldo_bruto)) %>% 
+  ggplot(aes(x = sueldo_promedio, y = nivel_formacion))+
+  geom_col(fill = azul)+
+geom_text(aes(label = comma(round(sueldo_promedio, 0), 
+                              big.mark = ".",
+                             decimal.mark = ","),
+            hjust = 1., fontface = "bold"),
+            position = position_dodge(0.9),
+            size = 3, color = "white",
+            family = "Roboto") +
+  estilov +
+  eje_x_n +
+  labs(title = "Sueldo promedio por nivel de formación",
+       subtitle = "En AR$",
+       x="", y="", caption = fuente)
+
+  
+
+```
+
+Ahora veamos qué pasa si incluimos en el análisis el género para analizar los sueldos promedios y sus desvíos estándar.
+
+```{r sueldo-educ-genero}
+rh_ar %>% 
+  filter(pais == "Argentina", 
+         between(sueldo_bruto, es_p05, es_p95)) %>% 
+      mutate(nivel_formacion = fct_collapse(nivel_formacion,
+                                        "Secundario completo" = c("Secundario completo", "Terciario en curso",
+                                                                  "Terciario abandonado", "Universitario abandonado"),
+                                        "Universitario completo" = c("Universitario completo", "Maestría abandonada", 
+                                                                     "Diplomado de posgrado abandonado")),
+         nivel_formacion = fct_recode(nivel_formacion, "Diplomado completo" = "Diplomado de posgrado completo",
+                                      "Diplomado en curso" = "Diplomado de posgrado en curso")) %>% 
+    mutate(nivel_formacion = factor(nivel_formacion,
+                                  levels = c("Secundario completo", "Terciario completo",
+                                             "Universitario en curso", "Universitario completo",
+                                             "Diplomado en curso", "Diplomado completo",
+                                             "Maestría en curso","Maestría completa"))) %>% 
+  group_by(nivel_formacion, genero) %>% 
+  summarise(salarios = list(mean_se(sueldo_bruto))) %>% 
+  unnest(salarios) %>% 
+  ggplot(aes(x = nivel_formacion, y = y, fill = genero)) +
+  geom_col(position = "dodge")+
+  geom_errorbar(aes(ymin = ymin,ymax = ymax), position = "dodge")+
+  coord_flip()+
+  theme(legend.position = "top",
+        plot.title.position = "plot") +
+  eje_y_n +
+  estilov +
+  scale_fill_manual(values = c(verde, lila)) +
+  labs(title = "Sueldo promedio y desvío estándard por nivel de formación y género",
+       subtitle = "En AR$", 
+       x = "", y = "", 
+       caption = fuente, 
+       fill = "Género")
+```
 
 
 # Freelancers

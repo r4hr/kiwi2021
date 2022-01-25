@@ -1,7 +1,7 @@
 # Librerías ----
 pacman::p_load(tidyverse, funModeling, googlesheets4, gargle, gt, 
                extrafont, scales, ggalt, kableExtra, wordcloud, networkD3,
-               data.table)
+               data.table, ggeconodist)
 
 
 # Datos --------
@@ -523,3 +523,67 @@ rh21 <- rh21 %>%
 write_delim(rh21, file = "data/rh_2021.csv",
             delim = ";")   
 
+rh21 %>% 
+  count(rubro, sort = T)
+
+
+# Educación ----
+carreras <- kiwi21 %>% 
+  select(nivel_formacion, carrera_grado, tipo_universidad, trabajo, 
+         sueldo_bruto, puesto, funcion, pais, genero) %>% 
+  mutate(carrera_grado = factor(carrera_grado))
+
+
+sort(unique(carreras$carrera_grado))
+
+carreras %>% 
+  count(carrera_grado, sort = T) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  print(n = Inf)
+  
+
+carreras <- carreras %>% 
+  mutate(carrera_grado = fct_collapse(carrera_grado, 
+                                      "Comunicación Social" = c("Ciencias de la Comunicación", "Comunicación", "Comunicación social",
+                                                                "Comunicación Social",
+                                                                "Soy Licenciada en Ciencias Comunicación y Diplomada en RRHH"),
+                                      "Ingenierías" = c("Ingeniera Comercial", 
+                                                        "INGENIERA COMERCIAL",
+                                                        "Ing. Gestión Empresarial", 
+                                                        "Ingeniería",
+                                                        "Ingenieria comercial", 
+                                                        "Ingeniería Comercial",
+                                                        "Ingeniería de Sistemas", "Ingeniería Industrial"),
+                                      "Relaciones Públicas" = c("Lic. en Relacione Publicas",
+                                                                "Lic. en Relaciones Públicas",
+                                                                "Relaciones Públicas e Institucionales"), 
+                                      "Psicología" = c("Psicología", "Psicología Social")),
+         carrera_grado = fct_lump(carrera_grado, 
+                                  prop = 0.02, 
+                                  other_level = "Otros"),
+         carrera_grado = factor(carrera_grado,
+                                levels = c("RRHH / RRLL / RRTT", "Psicología", "Administración de Empresas", 
+                                           "Contador Público", "Ingenierías","Comunicación Social", "Otros")))
+
+
+
+carreras %>% 
+  group_by(carrera_grado) %>% 
+  summarise(cant = n()) %>% 
+  mutate(prop = cant/sum(cant)) %>% 
+  arrange(-cant)
+
+## Niveles de formación ----
+
+carreras %>% 
+  count(nivel_formacion)
+
+carreras %>% 
+  mutate(nivel_formacion = fct_collapse(nivel_formacion,
+                                        "Secundario completo" = c("Secundario completo", "Terciario en curso",
+                                                                  "Terciario abandonado", "Universitario abandonado"),
+                                        "Universitario completo" = c("Universitario completo", "Maestría abandonada", 
+                                                                     "Diplomado de posgrado abandonado")),
+         nivel_formacion = fct_recode(nivel_formacion, "Diplomado completo" = "Diplomado de posgrado completo",
+                                      "Diplomado en curso" = "Diplomado de posgrado en curso")) %>%
+  count(nivel_formacion)
