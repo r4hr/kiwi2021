@@ -1,0 +1,462 @@
+---
+title: "2° Encuesta KIWI de Sueldos de RRHH para Latam 2021"
+author: "R4HR Club de R para RRHH"
+date: "29/11/2021"
+output:
+  html_document:
+    theme: cosmo
+    highlight: haddock
+    toc: yes
+    toc_float: yes
+    code_folding: hide
+    code_download: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.retina = 3, out.width = "80%", fig.align = "center")
+```
+
+```{r preproceso}
+# Carga de librerías 
+# Instalar pacman install.packages("pacman")
+
+pacman::p_load(tidyverse, funModeling, gt, googlesheets4,gt, CGPfunctions,
+               extrafont, scales, ggalt, kableExtra, wordcloud, networkD3,
+               data.table)
+
+
+# Carga de Datos ----
+# Datos --------
+
+## 2021 ----
+
+# Encuesta
+kiwi21 <- read.csv("https://raw.githubusercontent.com/r4hr/kiwi2021/main/data/rh_2021.csv",
+                   sep = ";",
+                   encoding = "UTF-8") 
+
+
+kiwi21_original <- read_sheet("1nhpqDWuJoWhiVj0rIaV51-SdfnSxTpbV3Vcd3iYmyTw")
+
+options(scipen = 999)   # Modifica la visualización de los ejes numérico a valores nominales
+
+loadfonts(quiet = TRUE) # Permite cargar en R otros tipos de fuentes.
+
+# Estilo limpio sin líneas de fondo
+estilo <- theme(panel.grid = element_blank(),
+                plot.background = element_rect(fill = "#FBFCFC"),
+                panel.background = element_blank(),
+                text = element_text(family = "Roboto"))
+
+# Estilo limpio con líneas de referencia verticales en gris claro
+estilov <- theme(panel.grid = element_blank(),
+                 plot.background = element_rect(fill = "#FBFCFC"),
+                 panel.background = element_blank(),
+                 panel.grid.major.x = element_line(color = "#AEB6BF"),
+                 text = element_text(family = "Roboto"))
+
+# Estilo limpio con líneas de referencia horizontales en gris claro
+estiloh <- theme(panel.grid = element_blank(),
+                 plot.background = element_rect(fill = "#FBFCFC"),
+                 panel.background = element_blank(),
+                 panel.grid.major.y = element_line(color = "#AEB6BF"),
+                 text = element_text(family = "Roboto"))
+
+genero <- c("#1FC3AA", "#8624F5", "#FFD129", "#75838F") # Verde - Violeta - Amarillo - Gris
+genero3 <- c("#8624F5","#FFD129", "#1FC3AA")
+
+colores <-  c("#8624F5", "#1FC3AA")
+
+azul <- "#344D7E"
+verde <-  "#4A9FC7"
+rosa1 <- "#B95192"
+rosa2 <- "#EE5777"
+naranja <- "#FF764C"
+amarillo <- "#FFA600"
+gris <- "#75838F"
+lila <- "#755395"
+rojo <- "#943126"
+
+col4 <- c(azul, lila, rosa1, rosa2)
+col5 <- c(azul, lila, rosa1, rosa2, naranja)
+col6 <- c(azul, lila, rosa1, rosa2, naranja, amarillo)
+
+# Creo un objeto con un texto que se va a repetir mucho a lo largo del análisis
+fuente <- "Fuente: Encuesta KIWI de Sueldos de RRHH para Latam 2021"
+
+# Creo objetos para formatear las etiquetas numéricas de los ejes x e y
+eje_x_n <- scale_x_continuous(labels = comma_format(big.mark = ".", decimal.mark = ","))
+
+eje_y_n <- scale_y_continuous(labels = comma_format(big.mark = ".", decimal.mark = ","))
+
+
+##### Vuelta a la Oficina ####
+
+vuelta<-kiwi21 %>% 
+  select(pais, trabajo, rubro, origen_capital,nombre_area, teletrabajo:valoracion_gestion_pandemia)
+
+```
+
+A continuación presentamos las respuestas obtenidas en relación al retorno al trabajo presencial. 
+
+## Teletrabajo & Presencial
+
+Podemos observar cierta equidad entre los que estan haciendo trabajo remoto, aquellos que continuan bajo la modalidad a distancia y quienes alternan  la modalidad presencial y teletrabajo: 
+
+```{r}
+
+kiwi21 %>% 
+  group_by(teletrabajo) %>% 
+  filter(teletrabajo !='NA')%>% 
+  tally(sort = T) %>% 
+    mutate(teletrabajo = fct_collapse(teletrabajo, "Mixto" = "Voy rotando entre la oficina y el teletrabajo"))%>% 
+  rename("Teletrabajo" = teletrabajo,
+        "Respuestas" = n) %>% 
+  kbl(caption = "Respuestas Teletrabajo", ) %>% 
+  kable_styling(full_width = F, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>% 
+  footnote(general = fuente)
+
+```
+
+## Comparativa con países
+
+Entre los países con mayor cantidad de respuestas, vemos que  en el caso de Argentina dicha distribución  era  pareja al momento de la encuesta, siendo destacable la categoría mixta, entendiendo por tales a quienes trabajan en la oficina y en forma remota.
+
+Las liberaciones paulatinas y en forma creciente a nivel Nacional podría ser una de las explicaciones del regreso a las oficinas. 
+Sería interesante evaluar de quienes realizan teletrabajo, cuantos de ellos lo hacian previo a la pandemia  y luego lo mantuvieron como politica de la compañia debido a la demanda de sus integrantes.
+
+Posiblemente sea una respuesta que podamos responder en próximas ediciones.
+
+
+Debido a las escasas respuestas de los otros países no podemos adentrarnos en  ninguna conclusión  en relación a ellos.
+
+
+```{r}
+kiwi21 %>% 
+  group_by(pais,teletrabajo) %>% 
+  filter(teletrabajo !='NA')%>% 
+  mutate(teletrabajo = fct_collapse(teletrabajo, "Mixto" = "Voy rotando entre la oficina y el teletrabajo")) %>%
+  tally(sort = T) %>% 
+  filter(n>5)%>% 
+  rename("Teletrabajo" = teletrabajo,
+         "País" = pais,
+        "Respuestas" = n) %>% 
+  kbl(caption = "Respuestas Teletrabajo", ) %>% 
+  kable_styling(full_width = F, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))%>% 
+  footnote(general = fuente)
+```
+
+
+## Por Rubro 
+
+Nos interesaba evaluar si existía alguna relación entre  teletrabajo y los rubros  de las industrias en la que se desempeñan las personas encuestadas. 
+
+En el siguiente cuadro podemos observar aquellos  que no estan haciendo teletrabajo, es decir que realizan  trabajos presenciales. Los mismos  se encuentran  principalmente en  rubros  con mayor necesidad de presencialidad, ya sea por la necesidad de producción o de prestación de servicios.
+
+```{r}
+kiwi21 %>% 
+  group_by(rubro) %>% 
+  filter(teletrabajo !='NA')%>% 
+    filter(teletrabajo =='No')%>% 
+  mutate(teletrabajo = fct_collapse(teletrabajo, "Mixto" = "Voy rotando entre la oficina y el teletrabajo")) %>%
+  tally(sort = T) %>% 
+  filter(n>5)%>% 
+  rename("Rubro" = 'rubro',
+        "Respuestas" = n) %>% 
+  arrange(Respuestas)%>%
+  kbl(caption = "Respuestas Teletrabajo", ) %>% 
+  kable_styling(full_width = F, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))%>% 
+  footnote(general = fuente)
+
+```
+
+
+
+## Origen del Capital 
+
+*Nota: (El grafico esta bien a simple vista y controlado con un excel, pero ver si es correcta la relacion/paramtros que hice para armar el grafico)*
+
+Si nos focalizamos en las categorías más representativas  de quienes no estan asitiendo a las oficinas   o de quienes lo estan haciendo en modalidad mixta, vemos una predominancia en las empresas Nacionales.
+
+```{r}
+
+## Limpieza variable genero ----
+
+
+divT <- kiwi21 %>% 
+  select(teletrabajo, origen_capital) %>% 
+  filter(teletrabajo!="NA")%>%  # se saca, porque no es 
+  filter(teletrabajo!="Si")%>%  # se saca, porque no es 
+  mutate(teletrabajo = fct_collapse(teletrabajo, "Mixto" = "Voy rotando entre la oficina y el teletrabajo")) %>%
+  group_by(teletrabajo,origen_capital) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+# Compute the cumulative percentages (top of each rectangle)
+divT$ymax <- cumsum(divT$freq)
+
+# Compute the bottom of each rectangle
+divT$ymin <- c(0, head(divT$ymax, n=-1))
+
+# Compute label position
+divT$labelPosition <- (divT$ymax + divT$ymin) / 2
+
+# Compute a good label
+divT$label <- paste0(divT$origen_capital, "\n Cant: ", divT$n)
+
+# Make the plot
+ggplot(divT, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=origen_capital)) +
+  geom_rect() +
+  coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+  xlim(c(2, 4)) +# Try to remove that to see how to make a pie chart
+  scale_fill_manual(values = c(verde, lila)) +
+  theme_void() +
+  theme(legend.position = "right",
+        panel.background = element_blank(),
+        text = element_text(family = "Roboto")) +
+  labs(title = "Cantidad de respuestas según Origen del  Capital",
+       subtitle = "",
+       fill = "Origen", 
+       caption = fuente)
+
+```
+
+Si nos limitamos a Argentina, país con mayor cantidad de respuestas,  podemos confirmar que  se mantiene la misma tendencia. Dicha relación guarda cierta lógica con la estructura productiva Nacional, con mayor presencia de empresas Nacionales. 
+
+Por otra parte, también podriamos suponer que las mismas no tienen  tradición en  implementar y mantener en el tiempo políticas de trabajo remoto, sin embargo carecemos de elementos suficientes  para realizar dicho análisis. 
+
+``` {r}
+
+divT2 <- kiwi21 %>% 
+  select(pais, teletrabajo, origen_capital) %>% 
+  filter(pais =="Argentina")%>% 
+  filter(teletrabajo!="NA")%>%  # se saca, porque no es 
+  filter(teletrabajo!="Si")%>%  # se saca, porque no es 
+  mutate(teletrabajo = fct_collapse(teletrabajo, "Mixto" = "Voy rotando entre la oficina y el teletrabajo")) %>%
+  group_by(teletrabajo,origen_capital) %>% 
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+# Compute the cumulative percentages (top of each rectangle)
+divT2$ymax <- cumsum(divT2$freq)
+
+# Compute the bottom of each rectangle
+divT2$ymin <- c(0, head(divT2$ymax, n=-1))
+
+# Compute label position
+divT$labelPosition <- (divT2$ymax + divT$ymin) / 2
+
+# Compute a good label
+divT2$label <- paste0(divT2$origen_capital, "\n Cant: ", divT$n)
+
+# Make the plot
+ggplot(divT2, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=origen_capital)) +
+  geom_rect() +
+  coord_polar(theta="y") + # Try to remove that to understand how the chart is built initially
+  xlim(c(2, 4)) +# Try to remove that to see how to make a pie chart
+  scale_fill_manual(values = c(verde, lila)) +
+  theme_void() +
+  theme(legend.position = "right",
+        panel.background = element_blank(),
+        text = element_text(family = "Roboto")) +
+  labs(title = "Cantidad de respuestas según Origen del  Capital",
+       subtitle = " Argentina",
+       fill = "Origen", 
+       caption = fuente)
+```
+
+##  Planes de retorno 
+
+Respecto a los planes de retorno, observamos que el 45% tiene planeado un retorno mixto, seguido por un 30% con presencialidad plena. Al momento de la encuesta, un grupo no menor  aún no tenía  planes en agenda, representando el 20% de las respuestas obtenidas.
+Por último,  tan solo un 5% planificó el retorno manteniendo el trabajo remoto  en forma exclusiva. 
+
+```{r}
+
+vuelta$retorno_plan <- factor(vuelta$retorno_plan, levels = c("Remoto 100%", "En evaluación","Presencial 100%","Mixto" ))
+r_plan<-vuelta %>% 
+  select(retorno_plan) %>%
+filter(retorno_plan!="NA") %>% 
+  mutate(cuenta = 1) %>% 
+  group_by(retorno_plan) %>%
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+```
+
+```{r}
+
+vuelta %>% 
+  select(retorno_plan) %>% 
+  filter(retorno_plan!="NA") %>% 
+  group_by(retorno_plan) %>% 
+  count() %>%
+  ggplot(aes(x = n, y = retorno_plan)) +
+  geom_col(fill = azul) +
+  estilov +
+  labs(title = "Respuestas por Plan de Retorno", 
+       x = "", y = "", 
+       caption = fuente)
+
+
+```
+
+## Mes de retorno
+
+Nos interesaba indagar entre quienes planeaban el retorno a las oficinas, ya sea en forma presencial o mixta, si tenian definido un  período de retorno. 
+
+Un 32% de las personas  encuestadas, ya había retomado actividades presenciales. Categoría seguida por un 25%, quienes por entonces aún  no tenían  difinición alguna. Para quienes estaban planeando la vuelta en Noviembre de 2021, suponemos que al momento de escribir estas lineas ya se  encuentran prestando servicio en forma presencial; el resto de los meses comparte similar relevancia porcentual.  En el caso de la categoría "Marzo",  se refiere a todos los que tenian  pensada la  vuelta desde Marzo 2022  en adelante, siendo un 7% de las  personas encuestadas.
+
+
+```{r}
+r_per<-vuelta %>% 
+  select(retorno_mes) %>%
+filter(retorno_mes!="NA") %>% 
+  mutate(cuenta = 1) %>% 
+  group_by(retorno_mes) %>%
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+
+```
+
+
+```{r}
+
+r_mes<- vuelta %>% 
+  select(retorno_plan, retorno_mes) %>% 
+  filter(retorno_plan!= "Remoto 100%")%>% 
+  filter(retorno_plan!="NA") %>% 
+  filter(retorno_mes!="NA") %>% 
+    filter(retorno_mes!="No aplica") %>% 
+  mutate(retorno_mes=fct_collapse(retorno_mes, "Dic" = "Diciembre 2021"),
+        retorno_mes=fct_collapse(retorno_mes, "Nov" = "Noviembre 2021"),
+         retorno_mes=fct_collapse(retorno_mes, "Ene" = "Enero 2022"),
+          retorno_mes=fct_collapse(retorno_mes, "Feb" = "Febrero 2022"),
+          retorno_mes=fct_collapse(retorno_mes, "Mar" = "Marzo 2022 en adelante"),
+          retorno_mes=fct_collapse(retorno_mes, "Actual" = "Ya volvimos 100%"),
+          retorno_mes=fct_collapse(retorno_mes, "S/Def" = "No esta definido")) %>% 
+  filter(retorno_mes!="Actual") # ver qué  hacer con esta categoria
+
+
+
+r_mes$retorno_mes <- factor(r_mes$retorno_mes, levels = c( "Nov", "Dic","Ene","Feb", "Mar", "S/Def"))
+
+
+r_mes %>% 
+  select(retorno_mes) %>% 
+  mutate(cuenta = 1) %>% 
+  group_by(retorno_mes) %>%
+  summarise (n = n()) %>% 
+  arrange(-n)%>% 
+  ggplot(aes(x = retorno_mes, y = n)) +
+  geom_col(fill = azul) +
+  estiloh +
+  eje_y_n +
+  labs(title = "Mes de Retorno",
+       subtitle =  "2021 -2022",
+       x = "", y = "",
+       caption = fuente)
+
+```
+
+## Decisión de Retorno
+
+*(nota= no me acuerdo si era la decision de la vuelta, o de la seleccion de los dias...)*
+
+El retorno a las oficinas no parece ser una decisión de las personas encuentadas, ya que solo el 2%  expresó dicho interés, en una clara contraposición al 72% que expresó que la misma era una  decisión  unilateral de las empresas. 
+Es interesante destacar un 25% de los encuestados, cuya decisión de retorno fue tomada en forma conjunta. 
+
+
+Si bien  sería recomendable lograr un  equilibrio para las partes  y reconocer que no hay una solución
+única, sino que dependerá de la empresa, la industria y la cultura organizacional,  será fundamental para las empresas evaluar en qué condiciones se encuentra la gente que retoma, ya que si los números de  las nóminas replican las tendencias presentadas en la presente encuesta, será dificil conseguir  una adecuada experiencia positiva para sus colaboradores puesto que la distancia de intereses es considerablemente amplia. 
+
+
+```{r}
+dec1<-vuelta %>% 
+  select(retorno_decision) %>%
+filter(retorno_decision!="NA") %>% 
+  filter(retorno_decision!="No aplica") %>%
+  mutate(cuenta = 1) %>% 
+  group_by(retorno_decision) %>%
+  summarise (n = n()) %>% 
+  mutate(freq = n/sum(n)) %>% 
+  arrange(-n)
+  
+```
+
+A través del siguiente gráfico, observamos en qué tipo de empresas trabajan las personas que respondieron la encuesta y la relación con la decisión de retorno.
+
+```{r}
+
+
+
+r_dec <- vuelta %>% 
+  select(retorno_decision, origen_capital) %>%
+filter(retorno_decision!="NA") %>%
+  filter(retorno_decision!="No aplica") %>%
+filter(origen_capital!="NA")
+
+r_dec$retorno_decision <- factor(r_dec$retorno_decision, levels = c( "De la empresa", "De común acuerdo","Del empleado"))
+
+
+ggplot(r_dec, (aes(x = retorno_decision, fill = origen_capital))) + #Tipo de universidad y cargo
+  geom_bar(position = "dodge") +
+  theme(axis.text.x = element_text(angle = 360)) + 
+  labs(x="",y="") +
+    estilov +
+  scale_fill_manual(values = c(gris, verde, azul)) +
+  coord_flip() +
+  labs(title = "Respuestas según decisión de retorno y origen de capital",
+       subtitle = "",
+       x = "", fill = "Origen del Capital",
+       caption = fuente)
+
+```
+
+## Días de retorno
+
+Por último, en la siguiente table podemos ver la cantidad de días de retorno a las oficinas informado por las personas consultadas:
+
+```{r}
+
+r_dia<- vuelta %>% 
+  select(retorno_plan, retorno_dias) %>% 
+  filter(retorno_plan!= "Remoto 100%")%>% 
+  filter(retorno_plan!="NA") %>% 
+  filter(retorno_dias!="NA") %>% 
+    filter(retorno_dias!="No aplica") %>% 
+  mutate(retorno_dias=fct_collapse(retorno_dias, "Libre" = "A elección de cada empleado"),
+        retorno_dias=fct_collapse(retorno_dias, "1" = "1 día"),
+        retorno_dias=fct_collapse(retorno_dias, "2" = "2 días"),
+         retorno_dias=fct_collapse(retorno_dias, "3" = "3 días"),
+          retorno_dias=fct_collapse(retorno_dias, "4" = "4 días"),
+          retorno_dias=fct_collapse(retorno_dias, "5" = "5 días"),
+          retorno_dias=fct_collapse(retorno_dias, "Actual" = "5 días"))
+
+
+
+r_dia %>% 
+  select(retorno_dias) %>%
+filter(retorno_dias!="NA") %>% 
+  filter(retorno_dias!="No aplica") %>%
+  mutate(cuenta = 1) %>% 
+  group_by(retorno_dias) %>%
+  summarise (n = n()) %>% 
+  arrange(retorno_dias)%>% 
+   rename("Días" = 'retorno_dias',
+          "Respuestas" = 'n')%>% 
+  kbl(caption = "Cantidad de Días presenciales", ) %>% 
+  kable_styling(full_width = F, position = "center",
+                bootstrap_options = c("striped", "hover", "condensed", "responsive"))%>% 
+  footnote(general = fuente)
+
+```
+
