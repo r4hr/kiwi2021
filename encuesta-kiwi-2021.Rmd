@@ -165,13 +165,13 @@ Del total de respuestas recibidas, `r nrow(kiwi21_original) - nrow(freelo21)` so
 
 ```{r}
 kiwi21_original %>% 
-  select(Trabajo) %>% 
   group_by(Trabajo) %>% 
-  count() %>% 
-  ggplot(aes(x = n, y = Trabajo)) +
+  summarise(cant = n()) %>% 
+  ungroup %>% 
+  ggplot(aes(y = Trabajo, x = cant)) +
   geom_col(fill = azul) +
   estilov +
-  geom_text(aes(label = n), # Indica la cantidad de decimales
+  geom_text(aes(label = cant), # Indica la cantidad de decimales
             size = 3,       # Cambia el tamaño de la letra
             hjust = 1.2,    # Mueve la etiqueta para la izquierda
             color = "white",
@@ -1689,7 +1689,9 @@ ne_salario %>%
   labs(title = "Máximo nivel educativo alcanzado por género",
        subtitle = "Distribución por frecuencias absolutas",
        caption = fuente, 
-       fill = "Género")
+       fill = "Género") +
+      guides(fill = guide_legend(reverse=TRUE))  # Invierte el orden de los colores en la leyenda
+
 
 ```
 
@@ -1767,7 +1769,9 @@ ne_salario %>%
        subtitle = "Distribución por frecuencias absolutas",
        caption = fuente, 
        fill = "Género") +
-  facet_wrap(~puesto, ncol = 3)
+  facet_wrap(~puesto, ncol = 3) + 
+      guides(fill = guide_legend(reverse=TRUE))  # Invierte el orden de los colores en la leyenda
+
 
 ```
 
@@ -1868,7 +1872,6 @@ Con un *p-value* igual a `r round(resultados_test[1,3],3)` podemos afirmar que *
 A pesar de que en Recursos Humanos en Argentina, las mujeres cis representan la mayor cantidad de empleados bajo relación de dependencia, y además se forman en mayor proporción que los varones en posgrados, proporcionalmente en comparación con los hombres cis, acceden a menos posiciones de liderazgo.
 
 
-
 ## Análisis de sueldos y educación en Argentina
 
 En esta sección analizaremos los sueldos en comparación con los distintos niveles educativos.
@@ -1959,9 +1962,113 @@ rh_ar %>%
        subtitle = "En AR$", 
        x = "", y = "", 
        caption = fuente, 
-       fill = "Género")
+       fill = "Género") +      
+  guides(fill = guide_legend(reverse=TRUE))  # Invierte el orden de los colores en la leyenda
+
 ```
 
+# Sueldos por función
+
+
+En esta sección nos proponemos analizar los sueldos según las distintas funciones de Recursos Humanos.
+
+Para realizar este análisis tuvimos que unificar varias respuestas y eliminar algunas que no correspondían al área de RRHH para poder quedarnos con estas áreas de análisis.
+
+Los sueldos promedios y la cantidad de respuestas que recibimos de cada función son los siguientes:
+
+```{r funciones}
+# Limpieza de funciones
+
+
+# Unifico las funciones de RH
+rh_ar <- rh_ar %>% 
+  mutate(funcion = str_trim(funcion, side = "both"),
+    funcion = fct_collapse(funcion, 
+                           "Adm. de personal" = c("Administración de personal", 
+                                                  "Administrativa en área",
+                                                  "Asistente"),
+                           "Generalista" = c("Generalista", 
+                                             "Al ser HRBP un poco de todo payroll, capacitacion, comunicacion interna,",
+                                             "Area integral de RH", 
+                                             "General",
+                                             "HRBP",
+                                             "La mayoría de los nombrados con iguales condiciones de importancia y prioridad",
+                                             "RRHH", 
+                                             "Todas las anteriores", 
+                                             "Todo", 
+                                             "Todo lo anterior", 
+                                             "Todos ellos", 
+                                             "Todos, los descriptos"),
+                           "Capacitación y desarrollo" = c("Capacitación y desarrollo",
+                                                           "Capacitación y Desarrollo + Bienestar + RSE",
+                                                           "Desarrollo laboral: procesos Sofi, capacitacion, evaluación, desarrollo",
+                                                           "Onboarding, clima, cultura, liderazgo"),
+                           "Payroll" = c("Payroll / Liquidación de sueldos",
+                                         "payroll y adminsitracion de personal"),
+                           "Diseño organizacional" = c("Diseño organizacional",
+                              "Mejora continua proyectos de innovación")),
+    funcion = fct_lump(funcion, 
+                          n = 10, 
+                          other_level = "Otras funciones"))
+
+gt(
+  rh_ar %>% 
+    group_by(funcion) %>% 
+    summarise("Sueldo Promedio" = round(mean(sueldo_ft)),
+              Respuestas = n())
+  ) %>% 
+  tab_header(title = "Sueldo promedio por función",
+             subtitle = "En AR$") %>% 
+  cols_label(funcion = "Función") %>% 
+  fmt_currency(columns =  "Sueldo Promedio", decimals = 0,
+               sep_mark = ".", dec_mark = ",")
+
+rh_ar %>% 
+  group_by(funcion) %>% 
+  filter(funcion != "Otras funciones") %>% 
+  summarise(sueldo_promedio = mean(sueldo_ft)) %>% 
+  ggplot(aes(y = fct_reorder(funcion, sueldo_promedio), 
+             x = sueldo_promedio)) +
+  geom_col(fill = azul) +
+  labs(title = "Sueldo promedio por función",
+       subtitle = "En AR$",
+       x = "", y = "",
+       caption = fuente) +
+  eje_x_n +
+  estilov
+
+rh_ar %>% 
+  filter(funcion != "Otras funciones") %>% 
+  group_by(funcion, puesto) %>% 
+  summarise(sueldo_medio = mean(sueldo_ft)) %>% 
+  ggplot(aes(x = funcion, y = sueldo_medio)) +
+  geom_col(fill = azul) +
+  eje_y_n +
+  estiloh +
+  facet_wrap(~puesto) +
+  labs(title = "Sueldo promedio por puesto y función",
+       subtitle = "En AR$", 
+       x = "", y = "",
+       caption = fuente) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r gap_funciones}
+funciones_top <- rh_ar %>% 
+  filter(funcion %in% c("People Analytics", "Diseño organizacional",
+                           "Relaciones laborales", "Compensaciones y beneficios")) %>% 
+  summarise(promedio = mean(sueldo_ft)) %>% 
+  pull()
+
+funciones_bottom <- rh_ar %>% 
+  filter(funcion %in% c("Payroll", "Reclutamiento y selección", 
+                           "Capacitación y desarrollo", "Comunicación interna",
+                           "Adm. de personal")) %>% 
+  summarise(promedio = mean(sueldo_ft)) %>% 
+  pull()
+
+porcentaje_gap <- percent(funciones_top / funciones_bottom - 1)
+```
 
 # Freelancers
 
